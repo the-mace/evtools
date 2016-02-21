@@ -29,6 +29,7 @@ import datetime
 from tl_weather import get_daytime_weather_data
 
 import logging
+log = logging.getLogger()
 logging.basicConfig(level=logging.ERROR)
 
 
