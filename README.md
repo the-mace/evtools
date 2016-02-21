@@ -6,4 +6,5 @@ See help in the main tools:
 * solarcity.py --help
     
 Follow my blog related to these items and more at http://teslaliving.net
-You can also follow me on twitter [@teslaliving](http://www.twitter.com/teslaliving "@teslaliving).
+
+You can also follow me on twitter [@teslaliving](http://www.twitter.com/teslaliving "@teslaliving").
