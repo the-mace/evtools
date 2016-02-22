@@ -308,7 +308,7 @@ def main():
     parser.add_argument('--pluggedin', help='Check if car is plugged in', required=False, action='store_true')
     parser.add_argument('--dump', help='Dump all fields/data', required=False, action='store_true')
     parser.add_argument('--fields', help='Check for newly added API fields', required=False, action='store_true')
-    parser.add_argument('--day', help='Show state data for given day', required=False, type=int)
+    parser.add_argument('--day', help='Show state data for given day', required=False, type=str)
     parser.add_argument('--yesterday', help='Report on yesterdays driving', required=False, action='store_true')
     parser.add_argument('--export', help='Export data', required=False, action='store_true')
     parser.add_argument('--report', help='Produce summary report', required=False, action='store_true')
