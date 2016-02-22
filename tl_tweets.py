@@ -53,6 +53,9 @@ APP_SECRET = None
 OAUTH_TOKEN = None
 OAUTH_TOKEN_SECRET = None
 
+# Cache self ID
+MYSELF = None
+
 if 'TL_APP_KEY' in os.environ:
     APP_KEY = os.environ['TL_APP_KEY']
 
@@ -67,11 +70,12 @@ if 'TL_OAUTH_TOKEN_SECRET' in os.environ:
 
 
 def init_twitter_account(app_key, app_secret, oauth_token, oauth_token_secret):
-    global APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET
+    global APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET, MYSELF
     APP_KEY = app_key
     APP_SECRET = app_secret
     OAUTH_TOKEN = oauth_token
     OAUTH_TOKEN_SECRET = oauth_token_secret
+    MYSELF = None
 
 
 def check_twitter_config():
@@ -157,9 +161,9 @@ def tweet_search(log, item, limit=50):
 
 
 def check_relationship(log, id):
-    log.debug("      Checking relationship of %s with me", id)
-    check_twitter_config()
     my_screen_name = get_screen_name(log)
+    log.debug("      Checking relationship of %s with me (%s)", id, my_screen_name)
+    check_twitter_config()
     logging.captureWarnings(True)
     old_level = log.getEffectiveLevel()
     log.setLevel(logging.ERROR)
@@ -246,26 +250,30 @@ def get_follower_count(log, id):
 
 
 def get_screen_name(log):
-    log.debug("   Getting current user screen name")
-    check_twitter_config()
-    logging.captureWarnings(True)
-    old_level = log.getEffectiveLevel()
-    log.setLevel(logging.ERROR)
-    twitter = Twython(APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET)
-    try:
-        details = twitter.verify_credentials()
-    except TwythonAuthError, e:
+    global MYSELF
+    if not MYSELF:
+        log.debug("   Getting current user screen name")
+        check_twitter_config()
+        logging.captureWarnings(True)
+        old_level = log.getEffectiveLevel()
+        log.setLevel(logging.ERROR)
+        twitter = Twython(APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET)
+        try:
+            details = twitter.verify_credentials()
+        except TwythonAuthError, e:
+            log.setLevel(old_level)
+            log.exception("   Problem trying to get screen name")
+            twitter_auth_issue(e)
+            raise
+        except:
+            log.exception("   Problem trying to get screen name")
+            details = None
         log.setLevel(old_level)
-        log.exception("   Problem trying to get screen name")
-        twitter_auth_issue(e)
-        raise
-    except:
-        details = None
-    log.setLevel(old_level)
-    name = "Unknown"
-    if details:
-        name = details["screen_name"]
-    return name
+        name = "Unknown"
+        if details:
+            name = details["screen_name"]
+        MYSELF = name
+    return MYSELF
 
 
 def get_following(log, id):
