@@ -162,6 +162,8 @@ def tweet_search(log, item, limit=50):
 
 def check_relationship(log, id):
     my_screen_name = get_screen_name(log)
+    if my_screen_name == "Unknown":
+        raise("Couldn't get my own screen name")
     log.debug("      Checking relationship of %s with me (%s)", id, my_screen_name)
     check_twitter_config()
     logging.captureWarnings(True)
@@ -251,7 +253,7 @@ def get_follower_count(log, id):
 
 def get_screen_name(log):
     global MYSELF
-    if not MYSELF:
+    if not MYSELF or MYSELF == "Unknown":
         log.debug("   Getting current user screen name")
         check_twitter_config()
         logging.captureWarnings(True)
