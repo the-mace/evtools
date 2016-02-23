@@ -34,7 +34,7 @@ import datetime
 import json
 
 DARKSKY_API_KEY = None
-DARKSKY_URL = "https://api.forecast.io/forecast/%s/%s,%s?exclude=currently,minutely,alerts,flags"
+DARKSKY_URL = "https://api.forecast.io/forecast/%s/%s,%s?exclude=minutely,alerts,flags"
 
 if not DARKSKY_API_KEY and 'DARKSKY_API_KEY' in os.environ:
     DARKSKY_API_KEY = os.environ['DARKSKY_API_KEY']
@@ -43,7 +43,7 @@ if not DARKSKY_API_KEY:
     raise Exception("DARKSKY_API_KEY missing for weather data")
 
 
-def get_daytime_weather_data(log, weather_time):
+def get_daytime_weather_data(log, weather_time, location=None):
     """
     Get average weather during daytime hours
 
@@ -51,20 +51,21 @@ def get_daytime_weather_data(log, weather_time):
     :param weather_time: YYYYMMDD to get weather for
     """
 
-    # Get current location
-    try:
-        location = json.load(urllib.urlopen('http://ipinfo.io/json'))
-    except:
-        # Default to Statue of Liberty in NY if we can't get current location
-        location = {"city": "New York", "loc": "40.689249,-74.0445"}
-
-    if log:
-        log.debug("Get weather data for %s (%s) at %s",
-                  location["city"], location["loc"], datetime.datetime.fromtimestamp(weather_time))
+    if not location:
+        # Get current location
+        try:
+            l = json.load(urllib.urlopen('http://ipinfo.io/json'))
+            location = l["loc"]
+            if log:
+                log.debug("Get weather data for %s (%s) at %s",
+                          l["city"], location, datetime.datetime.fromtimestamp(weather_time))
+        except:
+            # Default to Statue of Liberty in NY if we can't get current location
+            location = "40.689249,-74.0445"
 
     # Now get the weather at this location
     weather_info = {}
-    fp = urllib.urlopen(DARKSKY_URL % (DARKSKY_API_KEY, location["loc"], int(weather_time)))
+    fp = urllib.urlopen(DARKSKY_URL % (DARKSKY_API_KEY, location, int(weather_time)))
     data = ""
 
     # Get weather data and convert json to dict
@@ -133,6 +134,7 @@ def get_daytime_weather_data(log, weather_time):
     weather_info["description"] = weather["daily"]["data"][0]["summary"]
     weather_info["avg_temp"] = temp_average
     weather_info["low_temp"] = low_temp
+    weather_info["current_temp"] = weather["currently"]["temperature"]
 
     # Return precipitation probability in a useful form
     if "precipProbability" in weather["daily"]["data"][0]:
