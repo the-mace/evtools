@@ -35,6 +35,7 @@ import json
 
 DARKSKY_API_KEY = None
 DARKSKY_URL = "https://api.forecast.io/forecast/%s/%s,%s?exclude=minutely,alerts,flags"
+DARKSKY_URL_NO_TIME = "https://api.forecast.io/forecast/%s/%s?exclude=minutely,alerts,flags"
 
 if not DARKSKY_API_KEY and 'DARKSKY_API_KEY' in os.environ:
     DARKSKY_API_KEY = os.environ['DARKSKY_API_KEY']
@@ -43,7 +44,7 @@ if not DARKSKY_API_KEY:
     raise Exception("DARKSKY_API_KEY missing for weather data")
 
 
-def get_daytime_weather_data(log, weather_time, location=None):
+def get_daytime_weather_data(log, weather_time=None, location=None):
     """
     Get average weather during daytime hours
 
@@ -65,9 +66,12 @@ def get_daytime_weather_data(log, weather_time, location=None):
 
     # Now get the weather at this location
     weather_info = {}
-    fp = urllib.urlopen(DARKSKY_URL % (DARKSKY_API_KEY, location, int(weather_time)))
-    data = ""
+    if weather_time:
+        fp = urllib.urlopen(DARKSKY_URL % (DARKSKY_API_KEY, location, int(weather_time)))
+    else:
+        fp = urllib.urlopen(DARKSKY_URL_NO_TIME % (DARKSKY_API_KEY, location))
 
+    data = ""
     # Get weather data and convert json to dict
     while True:
         d = fp.read()
