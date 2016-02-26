@@ -94,7 +94,7 @@ log.addHandler(loghandler)
 log.setLevel(loglevel)
 
 # Get the collection of pictures
-SOLAR_IMAGES = [os.path.join(PICTURES_PATH, f) for f in os.listdir(PICTURES_PATH)]
+SOLAR_IMAGES = [os.path.join(PICTURES_PATH, f) for f in os.listdir(PICTURES_PATH) if not f.startswith('.')]
 
 # Set to true to disable tweets/data file updates
 DEBUG_MODE = False
@@ -221,7 +221,9 @@ def tweet_production(daylight_hours, cloud_cover, production, special):
         print "Would tweet:\n%s" % message
         log.debug("DEBUG mode, not tweeting: %s", message)
     else:
-        tweet_string(message=message, log=log, media=random.choice(SOLAR_IMAGES))
+        media = random.choice(SOLAR_IMAGES)
+        log.debug("Using media: %s", media)
+        tweet_string(message=message, log=log, media=media)
 
 
 def tweet_month(data):
