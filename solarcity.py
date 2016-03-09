@@ -55,6 +55,8 @@ import os
 import argparse
 import fcntl
 import time
+import urllib
+import urllib2
 import logging
 from logging.handlers import RotatingFileHandler
 import traceback
@@ -434,6 +436,54 @@ def solarcity_report(data, no_email=False, no_tweet=False):
             tweet_string(message=tweet_message, log=log, media=random.choice(SOLAR_IMAGES))
 
 
+def upload_to_pvoutput(data, day):
+    # Get pvoutput.org login information from environment
+    if 'PVOUTPUT_ID' not in os.environ:
+        raise Exception("PVOUTPUT_ID missing")
+    else:
+        pvoutput_id = os.environ['PVOUTPUT_ID']
+    if 'PVOUTPUT_KEY' not in os.environ:
+        raise Exception("PVOUTPUT_KEY missing")
+    else:
+        pvoutput_key = os.environ['PVOUTPUT_KEY']
+
+    log.debug("Report weather info to pvoutput.org for %s", day)
+
+    time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
+    w = get_daytime_weather_data(log, time_value)
+
+    short_description = "Not Sure"
+    if "partly cloudy" in w["description"].lower():
+        short_description = "Partly Cloudy"
+    if "mostly cloudy" in w["description"].lower():
+        short_description = "Mostly Cloudy"
+    elif "snow" in w["description"].lower():
+        short_description = "Snow"
+    elif "rain" in w["description"].lower():
+        short_description = "Showers"
+    elif "clear" in w["description"].lower():
+        short_description = "Fine"
+
+    pvdata = {}
+    pvdata["d"] = day
+    pvdata["g"] = data["data"][day]["production"] * 1000
+    pvdata["cd"] = short_description
+    pvdata["tm"] = "%.1f" % ((w["low_temp"] - 32) * 5.0 / 9.0)
+    pvdata["tx"] = "%.1f" % ((w["high_temp"] - 32) * 5.0 / 9.0)
+    pvdata["cm"] = "Daylight hours: %.1f, Cloud cover: %d%%" % (data["data"][day]["daylight"],
+                                                                data["data"][day]["cloud"])
+    data = urllib.urlencode(pvdata)
+
+    headers = {}
+    headers["X-Pvoutput-Apikey"] = pvoutput_key
+    headers["X-Pvoutput-SystemId"] = pvoutput_id
+
+    req = urllib2.Request("http://pvoutput.org/service/r2/addoutput.jsp", data, headers)
+    response = urllib2.urlopen(req)
+    output = response.read()
+    log.debug("   Upload response: %s", output)
+
+
 def main():
     parser = argparse.ArgumentParser(description='SolarCity Reporting')
     parser.add_argument('--no_email', help='Dont send emails', required=False, action='store_true')
@@ -445,6 +495,7 @@ def main():
     parser.add_argument('--monthly', help='Report on monthly generation', required=False, action='store_true')
     parser.add_argument('--yearly', help='Report on yearly generation', required=False, action='store_true')
     parser.add_argument('--weather', help='Report weather for given date (YYYYMMDD)', required=False, type=str)
+    parser.add_argument('--pvoutput', help="Send data for date (YYYYMMDD) to PVOutput.org", required=False, type=str)
     args = parser.parse_args()
 
     if args.stocktweet:
@@ -522,6 +573,21 @@ def main():
         print "   Precipitation Chance: %d%%" % w["precip_probability"]
         # analyze_weather(data)
 
+    if args.pvoutput is not None:
+        if int(args.pvoutput) == 0:
+            print "Uploading historical data to pvoutput.org"
+            for d in data["data"]:
+                print "   Processing date %s" % d
+                try:
+                    upload_to_pvoutput(data, d)
+                except:
+                    print "      problem with date %s" % d
+                print "      Sleeping"
+                # You'll need longer sleeps if you didnt donate
+                time.sleep(15)
+        else:
+            upload_to_pvoutput(data, args.pvoutput)
+
     if args.daily:
         log.debug("Check for daily update")
         current_day = time.strftime("%Y%m%d")
@@ -536,6 +602,8 @@ def main():
             tweet_production(daylight_hours, cloud_cover, production, special)
             data['config']['lastdailytweet'] = current_day
             data_changed = True
+            # Now upload to pvoutput
+            upload_to_pvoutput(data, current_day)
 
     if args.report:
         # Send/Run weekly solarcity summary report

@@ -97,6 +97,7 @@ def get_daytime_weather_data(log, weather_time=None, location=None):
     temp_count = 0
     temp_average = 0
     low_temp = 200
+    high_temp = 0
     cloudcover = 0
 
     for h in weather["hourly"]["data"]:
@@ -115,6 +116,8 @@ def get_daytime_weather_data(log, weather_time=None, location=None):
                 temp_count += 1
                 if h["temperature"] < low_temp:
                     low_temp = h["temperature"]
+                if h["temperature"] > high_temp:
+                    high_temp = h["temperature"]
 
     if cc_count:
         cc_average = (100.0 * cc_total) / cc_count
@@ -138,6 +141,7 @@ def get_daytime_weather_data(log, weather_time=None, location=None):
     weather_info["description"] = weather["daily"]["data"][0]["summary"]
     weather_info["avg_temp"] = temp_average
     weather_info["low_temp"] = low_temp
+    weather_info["high_temp"] = high_temp
     weather_info["current_temp"] = weather["currently"]["temperature"]
 
     # Return precipitation probability in a useful form
