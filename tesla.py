@@ -53,15 +53,20 @@ from logging.handlers import RotatingFileHandler
 import traceback
 import time
 import random
-import teslajson
 from urllib2 import HTTPError
 import datetime
 from tl_tweets import tweet_string
 from tl_email import email
 from tl_weather import get_daytime_weather_data
 
+import sys
+basepath = os.path.dirname(sys.argv[0])
+sys.path.append(os.path.join(basepath, 'teslajson'))
+import teslajson
+
+
 # Where logging output from this tool goes. Modify path as needed
-LOGFILE = os.path.expanduser("~/script/logs/tesla.log")
+LOGFILE = os.path.expanduser(os.environ['TESLA_LOGFILE'])
 
 # Data file containing all the saved state information
 DATA_FILE = "tesla.json"
@@ -70,7 +75,7 @@ DATA_FILE = "tesla.json"
 DUMP_DIR = "tesla_state_dumps"
 
 # Updated with your car name (API needs car name)
-CAR_NAME = "Baddog"
+CAR_NAME = os.environ['TESLA_CAR_NAME']
 
 # Some of the tweets attach pictures. They're randomly chosen from this path
 PICTURES_PATH = "images/favorites"
@@ -85,10 +90,11 @@ logT.addHandler(loghandler)
 logT.setLevel(loglevel)
 
 # Get the collection of pictures
-FAVORITE_PICS = [os.path.join(PICTURES_PATH, f) for f in os.listdir(PICTURES_PATH) if not f.startswith('.')]
+def get_pics():
+    return [os.path.join(PICTURES_PATH, f) for f in os.listdir(PICTURES_PATH) if not f.startswith('.')]
 
 # Set to true to disable tweets/data file updates
-DEBUG_MODE = False
+DEBUG_MODE = 'DEBUG_MODE' in os.environ
 
 # Get Teslamotors.com login information from environment
 TESLA_EMAIL = None
@@ -127,7 +133,7 @@ def tweet_major_mileage(miles):
     a = random.choice(["an amazing", "an awesome", "a fantastic", "a wonderful"])
     message = "Just passed %s miles on my Model S! It's been %s experience. " \
               "#Tesla @TeslaMotors @Teslarati #bot" % (m, a)
-    pic = random.choice(FAVORITE_PICS)
+    pic = random.choice(get_pics())
     if DEBUG_MODE:
         print "Would tweet:\n%s with pic: %s" % (message, pic)
         logT.debug("DEBUG mode, not tweeting: %s with pic: %s", message, pic)
@@ -458,7 +464,7 @@ def main():
                 m = "Yesterday I drove my #Tesla %s miles using %.1f kW with an effic. of %d Wh/mi. Avg temp %.1fF. " \
                     "@Teslamotors #bot" \
                     % ("{:,}".format(int(miles_driven)), kw_used, kw_used * 1000 / miles_driven, w["avg_temp"])
-            pic = random.choice(FAVORITE_PICS)
+            pic = random.choice(get_pics())
             if DEBUG_MODE:
                 print "Would tweet:\n%s with pic: %s" % (m, pic)
                 logT.debug("DEBUG mode, not tweeting: %s with pic: %s", m, pic)
