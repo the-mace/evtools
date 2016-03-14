@@ -44,6 +44,10 @@ import sys
 import time
 import random
 import logging
+import sys
+
+basepath = os.path.dirname(sys.argv[0])
+sys.path.append(os.path.join(basepath, 'twython'))
 from twython import Twython, TwythonAuthError
 
 
