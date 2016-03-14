@@ -39,7 +39,8 @@ Examples:
     ./tesla.py --pluggedin - Check if your Tesla is plugged in
 
 I use cron to run a bunch of these, example:
-00     22        *       *       * source ~/.bashrc;cd "~/Documents/Data";/usr/bin/python ~/Documents/Code/evtools/tesla.py --pluggedin
+00     22        *       *       * source ~/.bashrc;cd "~/Documents/Data";/usr/bin/python \
+                                                        ~/Documents/Code/evtools/tesla.py --pluggedin
 
 Use --help for all options
 """
@@ -89,9 +90,15 @@ loghandler.setFormatter(logging.Formatter(DEF_FRMT))
 logT.addHandler(loghandler)
 logT.setLevel(loglevel)
 
+
 # Get the collection of pictures
 def get_pics():
-    return [os.path.join(PICTURES_PATH, f) for f in os.listdir(PICTURES_PATH) if not f.startswith('.')]
+    if os.path.exists(PICTURES_PATH):
+        pics = [os.path.join(PICTURES_PATH, f) for f in os.listdir(PICTURES_PATH) if not f.startswith('.')]
+    else:
+        pics = [None, ]
+    return pics
+
 
 # Set to true to disable tweets/data file updates
 DEBUG_MODE = 'DEBUG_MODE' in os.environ
@@ -309,7 +316,8 @@ def save_data(data):
 def main():
     parser = argparse.ArgumentParser(description='Tesla Control')
     parser.add_argument('--status', help='Get car status', required=False, action='store_true')
-    parser.add_argument('--mileage', help='Check car mileage and tweet as it crosses 1,000 mile marks', required=False, action='store_true')
+    parser.add_argument('--mileage', help='Check car mileage and tweet as it crosses 1,000 mile marks',
+                        required=False, action='store_true')
     parser.add_argument('--state', help='Record car state', required=False, action='store_true')
     parser.add_argument('--pluggedin', help='Check if car is plugged in', required=False, action='store_true')
     parser.add_argument('--dump', help='Dump all fields/data', required=False, action='store_true')
