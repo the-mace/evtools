@@ -392,7 +392,21 @@ def main():
     elif args.state:
         # Save current Tesla state information
         logT.debug("Saving Tesla state")
-        s = get_current_state(c, CAR_NAME)
+        retries = 3
+        s = None
+        while retries > 0:
+            try:
+                s = get_current_state(c, CAR_NAME)
+                break
+            except:
+                retries -= 1
+                if retries > 0:
+                    logT.exception("   Problem getting current state, sleeping and trying again")
+                    time.sleep(30)
+        if s is None:
+            logT.error("   Could not fetch current state")
+            raise Exception("Couldnt fetch Tesla state")
+        logT.debug("   got current state")
         t = datetime.date.today()
         ts = t.strftime("%Y%m%d")
         hour = datetime.datetime.now().hour
@@ -401,6 +415,7 @@ def main():
         else:
             ampm = "pm"
         data["daily_state_%s" % ampm][ts] = s
+        logT.debug("   added to database")
         data_changed = True
 
     elif args.day:
