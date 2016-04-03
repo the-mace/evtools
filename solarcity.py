@@ -618,6 +618,7 @@ def main():
         print "%s day max on %s" % (show_with_units(data['data'][production_max]['production']), production_max)
         print "%s day min on %s" % (show_with_units(data['data'][production_min]['production']), production_min)
         print "%s average production" % (show_with_units(total_generation / len(data['data'])))
+        print 'Sign up for <a href="http://share.solarcity.com/teslaliving">SolarCity</a> and save on electric!'
 
         print "\n"
         print "%s%s%s&nbsp;&nbsp;%s&nbsp;&nbsp;%s" % ("Date", "&nbsp;" * 11, "Production", "Daylight", "Cloud Cover")
@@ -646,6 +647,7 @@ def main():
             else:
                 print '%s' % e, '&nbsp;&nbsp;&nbsp;&nbsp;%s' % show_with_units(production)
 
+        print '\nSign up for <a href="http://share.solarcity.com/teslaliving">SolarCity</a> and save on electric!'
         print '\nFollow <a href="https://twitter.com/teslaliving">@TeslaLiving</a>.'
         print '\n<ul>'
         print '<li><i>Note 1: Detailed generation tracking started 20150612.</i></li>'
