@@ -480,11 +480,19 @@ def main():
                 ownership_months = int((today_ym - start_ym).days / 30)
                 m = "Yesterday my #Tesla had a day off. Current mileage is %s miles after %d months " \
                     "@Teslamotors #bot" % ("{:,}".format(int(mileage)), ownership_months)
+            elif False: #not is_plugged_in(c, CAR_NAME):
+                # Need to skip efficiency stuff here if car didnt charge last night
+                day = yesterday_ts
+                time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
+                w = get_daytime_weather_data(logT, time_value)
+                m = "Yesterday I drove my #Tesla %s miles. Avg temp %.1fF. " \
+                    "@Teslamotors #bot" \
+                    % ("{:,}".format(int(miles_driven)), w["avg_temp"])
             else:
                 day = yesterday_ts
                 time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
                 w = get_daytime_weather_data(logT, time_value)
-                m = "Yesterday I drove my #Tesla %s miles using %.1f kW with an effic. of %d Wh/mi. Avg temp %.1fF. " \
+                m = "Yesterday I drove my #Tesla %s miles using %.1f kWh with an effic. of %d Wh/mi. Avg temp %.1fF. " \
                     "@Teslamotors #bot" \
                     % ("{:,}".format(int(miles_driven)), kw_used, kw_used * 1000 / miles_driven, w["avg_temp"])
             pic = random.choice(get_pics())
