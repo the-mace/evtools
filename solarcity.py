@@ -146,7 +146,8 @@ def get_current_day_data():
     while loops > 0:
         time.sleep(10)
 
-        data = s.get_text("css=div.details-panel.pure-g")  # hist-summary.pure-g"
+        data = s.get_text("css=div.consumption-production-panel")
+        data += s.get_text("css=div.details-panel.pure-g")  # hist-summary.pure-g"
         log.debug("raw data: %r", data)
 
         fields = data.split("\n\n")
@@ -487,6 +488,7 @@ def upload_to_pvoutput(data, day):
 def main():
     parser = argparse.ArgumentParser(description='SolarCity Reporting')
     parser.add_argument('--no_email', help='Dont send emails', required=False, action='store_true')
+    parser.add_argument('--force', help='Force update', required=False, action='store_true')
     parser.add_argument('--no_tweet', help='Dont post tweets', required=False, action='store_true')
     parser.add_argument('--report', help='Generate report', required=False, action='store_true')
     parser.add_argument('--blog', help='Generate html report page', required=False, action='store_true')
@@ -591,7 +593,7 @@ def main():
     if args.daily:
         log.debug("Check for daily update")
         current_day = time.strftime("%Y%m%d")
-        if data['config']['lastdailytweet'] != current_day or DEBUG_MODE:
+        if data['config']['lastdailytweet'] != current_day or DEBUG_MODE or args.force:
             daylight_hours, cloud_cover, production = get_current_day_data()
             data['data'][current_day] = {'daylight': daylight_hours, 'cloud': cloud_cover, 'production': production}
             special = None
