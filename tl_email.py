@@ -47,26 +47,34 @@ else:
     TL_MAILFROM = DEFAULT_TL_MAILFROM
 
 
-def email(email, message, subject):
+def email(email, message, subject, cc=None, bcc=None):
     """
     Send an email to someone
     :param email: Target for email
     :param message: The message to send
     :param subject: The subject of the message
+    :param cc: CC recipients
+    :param bcc: BCC recipients
     :return: None
     """
     msg = MIMEText(message.encode('utf-8').strip())
 
     # make sure the user provided all the parameters
     if not email:
-        return "A required parameter is missing, \
-               please go back and correct the error"
+        raise Exception("A required parameter is missing, please go back and correct the error")
 
     # create the message text
     msg['Subject'] = subject
     msg['From'] = TL_MAILFROM
     msg['To'] = email
 
+    to_addr = [email]
+    if cc:
+        msg['CC'] = ",".join(cc)
+        to_addr += cc
+    if bcc:
+        to_addr += bcc
+
     server = smtplib.SMTP(TL_SMTP_SERVER)
-    server.sendmail(TL_MAILFROM, [email], msg.as_string())
+    server.sendmail(TL_MAILFROM, to_addr, msg.as_string())
     server.quit()
