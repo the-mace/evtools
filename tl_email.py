@@ -32,14 +32,30 @@ from email.mime.text import MIMEText
 
 # Initialize Mail Items
 DEFAULT_TL_SMTP_SERVER = "127.0.0.1"
+DEFAULT_TL_SMTP_PORT = 25
 DEFAULT_TL_MAILFROM = "nobody@example.com"
-
+DEFAULT_TL_SMTP_USER = None
+DEFAULT_TL_SMTP_PASSWORD = None
 
 if 'TL_SMTP_SERVER' in os.environ:
     TL_SMTP_SERVER = os.environ['TL_SMTP_SERVER']
 else:
     TL_SMTP_SERVER = DEFAULT_TL_SMTP_SERVER
 
+if 'TL_SMTP_PORT' in os.environ:
+    TL_SMTP_PORT = os.environ['TL_SMTP_PORT']
+else:
+    TL_SMTP_PORT = DEFAULT_TL_SMTP_PORT
+
+if 'TL_SMTP_USER' in os.environ:
+    TL_SMTP_USER = os.environ['TL_SMTP_USER']
+else:
+    TL_SMTP_USER = DEFAULT_TL_SMTP_USER
+
+if 'TL_SMTP_PASSWORD' in os.environ:
+    TL_SMTP_PASSWORD = os.environ['TL_SMTP_PASSWORD']
+else:
+    TL_SMTP_PASSWORD = DEFAULT_TL_SMTP_PASSWORD
 
 if 'TL_MAILFROM' in os.environ:
     TL_MAILFROM = os.environ['TL_MAILFROM']
@@ -48,15 +64,6 @@ else:
 
 
 def email(email, message, subject, cc=None, bcc=None):
-    """
-    Send an email to someone
-    :param email: Target for email
-    :param message: The message to send
-    :param subject: The subject of the message
-    :param cc: CC recipients
-    :param bcc: BCC recipients
-    :return: None
-    """
     msg = MIMEText(message.encode('utf-8').strip())
 
     # make sure the user provided all the parameters
@@ -75,6 +82,15 @@ def email(email, message, subject, cc=None, bcc=None):
     if bcc:
         to_addr += bcc
 
-    server = smtplib.SMTP(TL_SMTP_SERVER)
-    server.sendmail(TL_MAILFROM, to_addr, msg.as_string())
-    server.quit()
+    # Here we're assuming if its local host sending email there's no login/security, otherwise its secure
+    if TL_SMTP_SERVER != DEFAULT_TL_SMTP_SERVER or TL_SMTP_PORT != 25:
+        server = smtplib.SMTP(TL_SMTP_SERVER, TL_SMTP_PORT)
+        server.ehlo()
+        server.starttls()
+        server.login(TL_SMTP_USER, TL_SMTP_PASSWORD)
+        server.sendmail(TL_MAILFROM, to_addr, msg.as_string())
+        server.quit()
+    else:
+        server = smtplib.SMTP(TL_SMTP_SERVER)
+        server.sendmail(TL_MAILFROM, to_addr, msg.as_string())
+        server.quit()

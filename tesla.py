@@ -102,6 +102,8 @@ def get_pics():
 
 # Set to true to disable tweets/data file updates
 DEBUG_MODE = 'DEBUG_MODE' in os.environ
+MAX_RETRIES = 3
+RETRY_SLEEP = 10
 
 # Get Teslamotors.com login information from environment
 TESLA_EMAIL = None
@@ -257,10 +259,12 @@ def is_plugged_in(c, car):
     for v in c.vehicles:
         if v["display_name"] == car:
             d = v.data_request("charge_state")
-            charge_door_open = d["charge_port_door_open"]
+            # charge_port_door_open and charge_port_latch have been unreliable individually
+            charge_door_open = d["charge_port_latch"] == "Disengaged" or d["charge_port_door_open"]
             state = d["charging_state"]
             plugged_in = charge_door_open and state != "Disconnected"
-            logT.debug("Port open: %s. State: %s", charge_door_open, state)
+            logT.debug("Door unlatched: %s. State: %s", charge_door_open, state)
+            logT.debug("Latch: %s Door open: %s", d["charge_port_latch"], d["charge_port_door_open"])
     return plugged_in
 
 
@@ -328,6 +332,7 @@ def main():
     parser.add_argument('--report', help='Produce summary report', required=False, action='store_true')
     parser.add_argument('--garage', help='Trigger garage door (experimental)', required=False, action='store_true')
     parser.add_argument('--sunroof', help='Control sunroof (vent, open, close)', required=False, type=str)
+    parser.add_argument('--mailtest', help='Test emailing', required=False, action='store_true')
     args = parser.parse_args()
 
     # Make sure we only run one instance at a time
@@ -457,6 +462,23 @@ def main():
             message += "Current battery level is %d%%. (%d estimated miles)" % (s["soc"], int(s["estimated_range"]))
             message += "\n\nRegards,\nRob"
             email(email=TESLA_EMAIL, message=message, subject="Your Tesla isn't plugged in")
+            logT.debug("   Not plugged in. Emailed notice.")
+        else:
+            logT.debug("   Its plugged in.")
+
+    elif args.mailtest:
+        # Test emailing
+        logT.debug("Testing email function")
+        message = "Email test from tool.\n\n"
+        message += "If you're getting this its working."
+        message += "\n\nRegards,\nRob"
+        try:
+            email(email=TESLA_EMAIL, message=message, subject="Tesla Email Test")
+            logT.debug("   Successfully sent the mail.")
+            print "Mail send passed."
+        except:
+            logT.exception("Problem trying to send mail")
+            print "Mail send failed, see log."
 
     elif args.yesterday:
         # Report on yesterdays mileage/efficiency
@@ -513,18 +535,26 @@ def main():
 
     if data_changed:
         save_data(data)
+
+    fcntl.flock(fp.fileno(), fcntl.LOCK_UN)
     logT.debug("--- tesla.py end ---")
 
 
 if __name__ == '__main__':
-    try:
-        main()
-    except SystemExit:
-        pass
-    except HTTPError, e:
-        if e.code == 500 or e.code == 408:
-            logT.debug("Transient error from Tesla API: %d", e.code)
-        else:
+    for retry in range(MAX_RETRIES):
+        try:
+            main()
+            break
+        except SystemExit:
+            break
+        except HTTPError, e:
+            if e.code == 500 or e.code == 408:
+                logT.debug("Transient error from Tesla API: %d", e.code)
+                logT.debug("Retrying again in %d seconds", RETRY_SLEEP)
+                time.sleep(RETRY_SLEEP)
+            else:
+                mail_exception(traceback.format_exc())
+                break
+        except:
             mail_exception(traceback.format_exc())
-    except:
-        mail_exception(traceback.format_exc())
+            break
