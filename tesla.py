@@ -337,12 +337,16 @@ def main():
 
     # Make sure we only run one instance at a time
     blocked = True
+    max_wait_count = 10
     while blocked:
         fp = open('/tmp/tesla.lock', 'w')
         try:
             fcntl.flock(fp.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
             blocked = False
         except:
+            max_wait_count -= 1
+            if max_wait_count == 0:
+                raise Exception("Lock file not getting released. Please investigate")
             logT.debug("Someone else is running this tool right now. Sleeping")
             time.sleep(30)
 
@@ -536,7 +540,7 @@ def main():
     if data_changed:
         save_data(data)
 
-    fcntl.flock(fp.fileno(), fcntl.LOCK_UN)
+    os.remove('/tmp/tesla.lock')
     logT.debug("--- tesla.py end ---")
 
 
@@ -552,6 +556,9 @@ if __name__ == '__main__':
                 logT.debug("Transient error from Tesla API: %d", e.code)
                 logT.debug("Retrying again in %d seconds", RETRY_SLEEP)
                 time.sleep(RETRY_SLEEP)
+
+                # Unlock and retry
+                os.remove('/tmp/tesla.lock')
             else:
                 mail_exception(traceback.format_exc())
                 break
