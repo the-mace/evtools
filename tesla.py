@@ -430,11 +430,14 @@ def main():
     elif args.day:
         # Show Tesla state information from a given day
         ts = args.day
+        raw = ""
         if ts in data["daily_state_am"]:
             print "Data for %s am:" % ts
             for i in ("odometer", "soc", "ideal_range", "rated_range", "estimated_range", "charge_energy_added",
                       "charge_miles_added_ideal", "charge_miles_added_rated"):
                 print "%s: %s" % (i, data["daily_state_am"][ts][i])
+                raw += "%s\t" % data["daily_state_am"][ts][i]
+            print "\nRaw: %s" % raw
 
     elif args.report:
         # Show total and average energy added
