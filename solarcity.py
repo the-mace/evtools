@@ -29,7 +29,7 @@ You need to download and install Selenium from here:
     http://www.seleniumhq.org/download/
 
 Then run it something like this:
-    java -jar /usr/local/bin/selenium-server-standalone-2.48.2.jar
+    java -jar /usr/local/bin/selenium-server-standalone-2.53.0.jar
 
 Other requirements:
     https://github.com/the-mace/evtools
