@@ -70,7 +70,7 @@ import teslajson
 LOGFILE = os.path.expanduser(os.environ['TESLA_LOGFILE'])
 
 # Data file containing all the saved state information
-DATA_FILE = "tesla.json"
+DATA_FILE = os.path.expanduser(os.getenv('TESLA_DATA_FILE', "tesla.json"))
 
 # Subdirectory where Tesla state dumps will be saved
 DUMP_DIR = "tesla_state_dumps"
@@ -79,7 +79,7 @@ DUMP_DIR = "tesla_state_dumps"
 CAR_NAME = os.environ['TESLA_CAR_NAME']
 
 # Some of the tweets attach pictures. They're randomly chosen from this path
-PICTURES_PATH = "images/favorites"
+PICTURES_PATH = os.path.expanduser(os.getenv('TESLA_PICTURES_PATH', "images/favorites"))
 
 # Logging setup
 DEF_FRMT = "%(asctime)s : %(levelname)-8s : %(funcName)-25s:%(lineno)-4s: %(message)s"
@@ -137,7 +137,7 @@ def establish_connection(token=None):
     return c
 
 
-def tweet_major_mileage(miles):
+def tweet_major_mileage(miles, get_tweet=False):
     m = "{:,}".format(miles)
     a = random.choice(["an amazing", "an awesome", "a fantastic", "a wonderful"])
     message = "Just passed %s miles on my Model S! It's been %s experience. " \
@@ -148,7 +148,10 @@ def tweet_major_mileage(miles):
         logT.debug("DEBUG mode, not tweeting: %s with pic: %s", message, pic)
     else:
         logT.info("Tweeting: %s with pic: %s", message, pic)
-        tweet_string(message=message, log=logT, media=pic)
+        if get_tweet:
+            return message, pic
+        else:
+            tweet_string(message=message, log=logT, media=pic)
 
 
 def dump_current_tesla_status(c):
@@ -317,6 +320,71 @@ def save_data(data):
         logT.debug("   Skipped saving due to debug mode")
 
 
+def get_lock():
+    # Make sure we only run one instance at a time
+    blocked = True
+    max_wait_count = 10
+    while blocked:
+        fp = open('/tmp/tesla.lock', 'w')
+        try:
+            fcntl.flock(fp.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            blocked = False
+        except:
+            max_wait_count -= 1
+            if max_wait_count == 0:
+                raise Exception("Lock file not getting released. Please investigate")
+            logT.debug("Someone else is running this tool right now. Sleeping")
+            time.sleep(30)
+
+
+def report_yesterday(data):
+    # Report on yesterdays mileage/efficiency
+    t = datetime.date.today()
+    today_ts = t.strftime("%Y%m%d")
+    t = t + datetime.timedelta(days=-1)
+    yesterday_ts = t.strftime("%Y%m%d")
+    if today_ts not in data["daily_state_am"] or yesterday_ts not in data["daily_state_am"]:
+        logT.debug("Skipping yesterday tweet due to missing items")
+    else:
+        miles_driven = data["daily_state_am"][today_ts]["odometer"] - data["daily_state_am"][yesterday_ts][
+            "odometer"]
+        kw_used = data["daily_state_am"][today_ts]["charge_energy_added"]
+        if miles_driven > 200:
+            m = "Yesterday I drove my #Tesla %s miles on a road trip! " \
+                "@Teslamotors #bot" % ("{:,}".format(int(miles_driven)))
+        elif miles_driven == 0:
+            mileage = data["daily_state_am"][today_ts]["odometer"]
+            today_ym = datetime.date.today()
+            start_ym = datetime.date(2014, 4, 21)
+            ownership_months = int((today_ym - start_ym).days / 30)
+            m = "Yesterday my #Tesla had a day off. Current mileage is %s miles after %d months " \
+                "@Teslamotors #bot" % ("{:,}".format(int(mileage)), ownership_months)
+        elif False:  # not is_plugged_in(c, CAR_NAME):
+            # Need to skip efficiency stuff here if car didnt charge last night
+            day = yesterday_ts
+            time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
+            w = get_daytime_weather_data(logT, time_value)
+            m = "Yesterday I drove my #Tesla %s miles. Avg temp %.1fF. " \
+                "@Teslamotors #bot" \
+                % ("{:,}".format(int(miles_driven)), w["avg_temp"])
+        else:
+            day = yesterday_ts
+            time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
+            w = get_daytime_weather_data(logT, time_value)
+            m = "Yesterday I drove my #Tesla %s miles using %.1f kWh with an effic. of %d Wh/mi. Avg temp %.1fF. " \
+                "@Teslamotors #bot" \
+                % ("{:,}".format(int(miles_driven)), kw_used, kw_used * 1000 / miles_driven, w["avg_temp"])
+        pic = os.path.abspath(random.choice(get_pics()))
+    return m, pic
+
+
+def get_update_for_yesterday():
+    get_lock()
+    data = load_data()
+    m, pic = report_yesterday(data)
+    return m, pic
+
+
 def main():
     parser = argparse.ArgumentParser(description='Tesla Control')
     parser.add_argument('--status', help='Get car status', required=False, action='store_true')
@@ -335,21 +403,7 @@ def main():
     parser.add_argument('--mailtest', help='Test emailing', required=False, action='store_true')
     args = parser.parse_args()
 
-    # Make sure we only run one instance at a time
-    blocked = True
-    max_wait_count = 10
-    while blocked:
-        fp = open('/tmp/tesla.lock', 'w')
-        try:
-            fcntl.flock(fp.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            blocked = False
-        except:
-            max_wait_count -= 1
-            if max_wait_count == 0:
-                raise Exception("Lock file not getting released. Please investigate")
-            logT.debug("Someone else is running this tool right now. Sleeping")
-            time.sleep(30)
-
+    get_lock()
     logT.debug("--- tesla.py start ---")
 
     data = load_data()
@@ -488,49 +542,13 @@ def main():
             print "Mail send failed, see log."
 
     elif args.yesterday:
-        # Report on yesterdays mileage/efficiency
-        t = datetime.date.today()
-        today_ts = t.strftime("%Y%m%d")
-        t = t + datetime.timedelta(days=-1)
-        yesterday_ts = t.strftime("%Y%m%d")
-        if today_ts not in data["daily_state_am"] or yesterday_ts not in data["daily_state_am"]:
-            logT.debug("Skipping yesterday tweet due to missing items")
+        m, pic = report_yesterday(data)
+        if DEBUG_MODE:
+            print "Would tweet:\n%s with pic: %s" % (m, pic)
+            logT.debug("DEBUG mode, not tweeting: %s with pic: %s", m, pic)
         else:
-            miles_driven = data["daily_state_am"][today_ts]["odometer"] - data["daily_state_am"][yesterday_ts][
-                "odometer"]
-            kw_used = data["daily_state_am"][today_ts]["charge_energy_added"]
-            if miles_driven > 200:
-                m = "Yesterday I drove my #Tesla %s miles on a road trip! " \
-                    "@Teslamotors #bot" % ("{:,}".format(int(miles_driven)))
-            elif miles_driven == 0:
-                mileage = data["daily_state_am"][today_ts]["odometer"]
-                today_ym = datetime.date.today()
-                start_ym = datetime.date(2014, 4, 21)
-                ownership_months = int((today_ym - start_ym).days / 30)
-                m = "Yesterday my #Tesla had a day off. Current mileage is %s miles after %d months " \
-                    "@Teslamotors #bot" % ("{:,}".format(int(mileage)), ownership_months)
-            elif False: #not is_plugged_in(c, CAR_NAME):
-                # Need to skip efficiency stuff here if car didnt charge last night
-                day = yesterday_ts
-                time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
-                w = get_daytime_weather_data(logT, time_value)
-                m = "Yesterday I drove my #Tesla %s miles. Avg temp %.1fF. " \
-                    "@Teslamotors #bot" \
-                    % ("{:,}".format(int(miles_driven)), w["avg_temp"])
-            else:
-                day = yesterday_ts
-                time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
-                w = get_daytime_weather_data(logT, time_value)
-                m = "Yesterday I drove my #Tesla %s miles using %.1f kWh with an effic. of %d Wh/mi. Avg temp %.1fF. " \
-                    "@Teslamotors #bot" \
-                    % ("{:,}".format(int(miles_driven)), kw_used, kw_used * 1000 / miles_driven, w["avg_temp"])
-            pic = random.choice(get_pics())
-            if DEBUG_MODE:
-                print "Would tweet:\n%s with pic: %s" % (m, pic)
-                logT.debug("DEBUG mode, not tweeting: %s with pic: %s", m, pic)
-            else:
-                logT.info("Tweeting: %s with pic: %s", m, pic)
-                tweet_string(message=m, log=logT, media=pic)
+            logT.info("Tweeting: %s with pic: %s", m, pic)
+            tweet_string(message=m, log=logT, media=pic)
 
     elif args.garage:
         # Open garage door (experimental as I dont have an AP car)
