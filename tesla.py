@@ -338,7 +338,10 @@ def get_lock():
 
 
 def remove_lock():
-    os.remove('/tmp/tesla.lock')
+    try:
+        os.remove('/tmp/tesla.lock')
+    except:
+        pass
 
 
 def report_yesterday(data):
