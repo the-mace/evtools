@@ -337,6 +337,10 @@ def get_lock():
             time.sleep(30)
 
 
+def remove_lock():
+    os.remove('/tmp/tesla.lock')
+
+
 def report_yesterday(data):
     # Report on yesterdays mileage/efficiency
     t = datetime.date.today()
@@ -382,6 +386,7 @@ def get_update_for_yesterday():
     get_lock()
     data = load_data()
     m, pic = report_yesterday(data)
+    remove_lock()
     return m, pic
 
 
@@ -561,7 +566,7 @@ def main():
     if data_changed:
         save_data(data)
 
-    os.remove('/tmp/tesla.lock')
+    remove_lock()
     logT.debug("--- tesla.py end ---")
 
 
@@ -579,7 +584,7 @@ if __name__ == '__main__':
                 time.sleep(RETRY_SLEEP)
 
                 # Unlock and retry
-                os.remove('/tmp/tesla.lock')
+                remove_lock()
             else:
                 mail_exception(traceback.format_exc())
                 break
