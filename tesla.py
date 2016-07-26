@@ -581,7 +581,7 @@ if __name__ == '__main__':
         except SystemExit:
             break
         except HTTPError, e:
-            if e.code == 500 or e.code == 408:
+            if e.code >= 500 or e.code == 408:
                 logT.debug("Transient error from Tesla API: %d", e.code)
                 logT.debug("Retrying again in %d seconds", RETRY_SLEEP)
                 time.sleep(RETRY_SLEEP)
