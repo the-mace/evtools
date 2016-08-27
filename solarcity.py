@@ -3,7 +3,7 @@
 """
 solarcity.py
 
-Copyright (c) 2015 Rob Mason
+Copyright (c) 2015, 2016 Rob Mason
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
@@ -26,10 +26,11 @@ Description:
 SolarCity doesn't offer an API to access your generation data, so here we're using Selenium to get data the data.
 
 You need to download and install Selenium from here:
-    http://www.seleniumhq.org/download/
+    pip install selenium
 
-Then run it something like this:
-    java -jar /usr/local/bin/selenium-server-standalone-2.53.0.jar
+You also need Mozilla Marionette
+    https://developer.mozilla.org/en-US/docs/Mozilla/QA/Marionette/WebDriver
+    Download and copy binary to /usr/local/bin and make sure its executable
 
 Other requirements:
     https://github.com/the-mace/evtools
@@ -63,7 +64,7 @@ import traceback
 from tl_tweets import tweet_string, tweet_price
 from tl_email import email
 from tl_stock import get_stock_quote
-from selenium import selenium
+from selenium import webdriver
 import csv
 import json
 import datetime
@@ -114,29 +115,23 @@ else:
 
 
 def get_current_day_data():
-    seleniumHost = 'localhost'
-    seleniumPort = str(4444)
-    browserStartCommand = "*firefox"
-    browserURL = "https://localhost:4444"
-
-    s = selenium(seleniumHost, seleniumPort, browserStartCommand, browserURL)
-    s.start()
+    driver = webdriver.Firefox()
+    driver.implicitly_wait(30)
 
     try:
-        s.open('https://login.solarcity.com/logout')
-        s.wait_for_page_to_load(PAGE_LOAD_TIMEOUT)
+        driver.get('https://login.solarcity.com/logout')
     except:
         pass
 
     time.sleep(10)
-    s.open(AUTH_URL)
+    driver.get(AUTH_URL)
     time.sleep(10)
-    s.type("id=username", SOLARCITY_USER)
-    s.type("id=password", SOLARCITY_PASSWORD)
-    s.click("document.form.elements[4]")
-    s.wait_for_page_to_load(PAGE_LOAD_TIMEOUT)
+    driver.find_element_by_id("username").send_keys(SOLARCITY_USER)
+    password = driver.find_element_by_id("password")
+    password.send_keys(SOLARCITY_PASSWORD)
+    password.submit()
     time.sleep(10)
-    s.click("//div[@id='HomeCtrlView']/div[2]/div/div/a")
+    driver.find_element_by_xpath("//div[@id='HomeCtrlView']/div[2]/div/div/a").click()
 
     production = 0
     daylight_hours = 0
@@ -146,8 +141,8 @@ def get_current_day_data():
     while loops > 0:
         time.sleep(10)
 
-        data = s.get_text("css=div.consumption-production-panel")
-        data += s.get_text("css=div.details-panel.pure-g")  # hist-summary.pure-g"
+        data = driver.find_element_by_css_selector("div.consumption-production-panel").text
+        data += driver.find_element_by_css_selector("div.details-panel.pure-g").text
         log.debug("raw data: %r", data)
 
         fields = data.split("\n\n")
@@ -192,13 +187,13 @@ def get_current_day_data():
         daylight_hours = w["daylight"]
 
     try:
-        s.click("//ul[@id='mysc-nav']/li[18]/a/span")
+        driver.find_element_by_xpath("//ul[@id='mysc-nav']/li[18]/a/span").click()
     except:
         pass
     time.sleep(2)
 
     # If we get here everything worked, shut down the browser
-    s.stop()
+    driver.quit()
 
     return daylight_hours, cloud_cover, production
 
