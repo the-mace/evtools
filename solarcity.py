@@ -145,30 +145,27 @@ def get_current_day_data():
         data += driver.find_element_by_css_selector("div.details-panel.pure-g").text
         log.debug("raw data: %r", data)
 
-        fields = data.split("\n\n")
+        fields = data.split("\n")
 
         for f in fields:
-            if f.find("daylight") != -1:
-                for o in f.split():
-                    try:
-                        daylight_hours = float(o)
-                        break
-                    except:
-                        pass
-            if f.find("cloud cover") != -1:
-                for o in f.split():
-                    try:
-                        cloud_cover = int(o)
-                        break
-                    except:
-                        pass
-            if f.find("produced") != -1:
-                for o in f.split():
-                    try:
-                        production = float(o)
-                        break
-                    except:
-                        pass
+            if f.find("hrs") != -1:
+                try:
+                    daylight_hours = float(f.split()[0])
+                    break
+                except:
+                    pass
+            if f.find(" %") != -1:
+                try:
+                    cloud_cover = int(f.split()[0])
+                    break
+                except:
+                    pass
+            if f.find("kWh") != -1:
+                try:
+                    production = float(f.split()[0])
+                    break
+                except:
+                    pass
 
         if production != 0:
             break
@@ -609,15 +606,24 @@ def main():
     if args.blog:
         # Export all entries found for posting to static page on blog: teslaliving.net/solarcity
         log.debug("Reporting on SolarCity generation for blog")
-        print "@SolarCity system size is 69 panels at 255W each = %s" % show_with_units(69 * .255)
+        print '<a href="http://share.solarcity.com/teslaliving">@SolarCity</a> Solar Installation'
+        print '<h3>System Details</h3>'
+        print "System size is 69 panels at 255W each = %s" % show_with_units(69 * .255)
         print "%s total power generated via @SolarCity as of %s" % (show_with_units(total_generation),
                                                                     time.strftime("%Y%m%d"))
         print "%s day max on %s" % (show_with_units(data['data'][production_max]['production']), production_max)
         print "%s day min on %s" % (show_with_units(data['data'][production_min]['production']), production_min)
         print "%s average production" % (show_with_units(total_generation / len(data['data'])))
+        print "Panel info: "
+        print "* Size: 1638 x 982 x 40mm (64.5 x 38.7 x 1.57in)"
+        print "* Vendor: <a href='http://www.canadiansolar.com/solar-panels/cs6p-p.html'>@CanadianSolar CS6P-P</a>"
+        print "Inverter info: "
+        print "* <a href='http://www.solaredge.com/sites/default/files/se-single-phase-us-inverter-datasheet.pdf'>SolarEdge SE6000A</a>"
+        print " "
         print 'Sign up for <a href="http://share.solarcity.com/teslaliving">SolarCity</a> and save on electric!'
 
-        print "\n"
+        print '<h3>Chart via <a href="http://pvoutput.org/list.jsp?id=48753&sid=44393">PVOutput</a></h3>[hoops name="pvoutput"]'
+        print '<h3>Daily Log:</h3>'
         print "%s%s%s&nbsp;&nbsp;%s&nbsp;&nbsp;%s" % ("Date", "&nbsp;" * 11, "Production", "Daylight", "Cloud Cover")
         d = data['data']
         for e in sorted(d, reverse=True):
