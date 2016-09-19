@@ -371,16 +371,24 @@ def report_yesterday(data):
             day = yesterday_ts
             time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
             w = get_daytime_weather_data(logT, time_value)
-            m = "Yesterday I drove my #Tesla %s miles. Avg temp %.1fF. " \
+            m = "Yesterday I drove my #Tesla %s miles. Avg temp %.0fF. " \
                 "@Teslamotors #bot" \
                 % ("{:,}".format(int(miles_driven)), w["avg_temp"])
         else:
             day = yesterday_ts
             time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
             w = get_daytime_weather_data(logT, time_value)
-            m = "Yesterday I drove my #Tesla %s miles using %.1f kWh with an effic. of %d Wh/mi. Avg temp %.1fF. " \
-                "@Teslamotors #bot" \
-                % ("{:,}".format(int(miles_driven)), kw_used, kw_used * 1000 / miles_driven, w["avg_temp"])
+            efficiency = kw_used * 1000 / miles_driven
+            # If efficiency isnt a reasonable number then don't report it.
+            # Example, drive somewhere and don't charge -- efficiency is zero.
+            # Or drive somewhere, charge at SC, then do normal charge - efficiency will look too high.
+            if kw_used > 0 and efficiency > 100 and efficiency < 700:
+                m = "Yesterday I drove my #Tesla %s miles using %.1f kWh with an effic. of %d Wh/mi. Avg temp %.0fF. " \
+                    "@Teslamotors #bot" \
+                    % ("{:,}".format(int(miles_driven)), kw_used, efficiency, w["avg_temp"])
+            else:
+                m = "Yesterday I drove my #Tesla %s miles using %.1f kWh. Avg temp %.0fF. " \
+                    "@Teslamotors #bot" % ("{:,}".format(int(miles_driven)), kw_used, w["avg_temp"])
         pic = os.path.abspath(random.choice(get_pics()))
     return m, pic
 
