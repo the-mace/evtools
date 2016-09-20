@@ -24,7 +24,7 @@ Blog: http://teslaliving.net
 Description:
 Uses the Dark Sky API to get weather at current location
 
-Requires a Dark Sky API key. Visit them to get one: https://developer.forecast.io
+Requires a Dark Sky API key. Visit them to get one: https://darksky.net/dev/
 Uses http://ipinfo.io to look up current location
 """
 
@@ -34,8 +34,8 @@ import datetime
 import json
 
 DARKSKY_API_KEY = None
-DARKSKY_URL = "https://api.forecast.io/forecast/%s/%s,%s?exclude=minutely,alerts,flags"
-DARKSKY_URL_NO_TIME = "https://api.forecast.io/forecast/%s/%s?exclude=minutely,alerts,flags"
+DARKSKY_URL = "https://api.darksky.net/forecast/%s/%s,%s?exclude=minutely,alerts,flags"
+DARKSKY_URL_NO_TIME = "https://api.darksky.net/forecast/%s/%s?exclude=minutely,alerts,flags"
 
 if not DARKSKY_API_KEY and 'DARKSKY_API_KEY' in os.environ:
     DARKSKY_API_KEY = os.environ['DARKSKY_API_KEY']
