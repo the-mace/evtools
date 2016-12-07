@@ -443,24 +443,38 @@ def main():
 
     if args.status:
         # Dump current Tesla status
-        print dump_current_tesla_status(c)
+        try:
+            print dump_current_tesla_status(c)
+        except:
+            logT.warning("Couldn't dump status this pass")
 
     elif args.dump:
         # Dump all of Tesla API state information to disk
         logT.debug("Dumping current Tesla state")
         t = datetime.date.today()
         ts = t.strftime("%Y%m%d")
-        m = dump_current_tesla_status(c)
-        open(os.path.join(DUMP_DIR, "tesla_state_%s.txt" % ts), "w").write(m)
+        try:
+            m = dump_current_tesla_status(c)
+            open(os.path.join(DUMP_DIR, "tesla_state_%s.txt" % ts), "w").write(m)
+        except:
+            logT.warning("Couldn't get dump this pass")
 
     elif args.fields:
         # Check for new Tesla API fields and report if any found
         logT.debug("Checking Tesla API fields")
-        data_changed, data = check_tesla_fields(c, data)
+        try:
+            data_changed, data = check_tesla_fields(c, data)
+        except:
+            logT.warning("Couldn't check fields this pass")
 
     elif args.mileage:
         # Tweet mileage as it crosses 1,000 mile marks
-        m = get_odometer(c, CAR_NAME)
+        try:
+            m = get_odometer(c, CAR_NAME)
+        except:
+            logT.warning("Couldn't get odometer this pass")
+            return
+
         if "mileage_tweet" not in data:
             data["mileage_tweet"] = 0
         if int(m / 1000) > int(data["mileage_tweet"] / 1000):
