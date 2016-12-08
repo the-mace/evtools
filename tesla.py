@@ -352,6 +352,8 @@ def report_yesterday(data):
     yesterday_ts = t.strftime("%Y%m%d")
     if today_ts not in data["daily_state_am"] or yesterday_ts not in data["daily_state_am"]:
         logT.debug("Skipping yesterday tweet due to missing items")
+        m = None
+        pic = None
     else:
         miles_driven = data["daily_state_am"][today_ts]["odometer"] - data["daily_state_am"][yesterday_ts][
             "odometer"]
@@ -573,12 +575,15 @@ def main():
 
     elif args.yesterday:
         m, pic = report_yesterday(data)
-        if DEBUG_MODE:
-            print "Would tweet:\n%s with pic: %s" % (m, pic)
-            logT.debug("DEBUG mode, not tweeting: %s with pic: %s", m, pic)
+        if m:
+            if DEBUG_MODE:
+                print "Would tweet:\n%s with pic: %s" % (m, pic)
+                logT.debug("DEBUG mode, not tweeting: %s with pic: %s", m, pic)
+            else:
+                logT.info("Tweeting: %s with pic: %s", m, pic)
+                tweet_string(message=m, log=logT, media=pic)
         else:
-            logT.info("Tweeting: %s with pic: %s", m, pic)
-            tweet_string(message=m, log=logT, media=pic)
+            logT.debug("No update, skipping yesterday report")
 
     elif args.garage:
         # Open garage door (experimental as I dont have an AP car)
