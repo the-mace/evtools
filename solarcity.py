@@ -151,19 +151,19 @@ def get_current_day_data():
             if f.find("hrs") != -1:
                 try:
                     daylight_hours = float(f.split()[0])
-                    break
+                    continue
                 except:
                     pass
             if f.find(" %") != -1:
                 try:
                     cloud_cover = int(f.split()[0])
-                    break
+                    continue
                 except:
                     pass
             if f.find("kWh") != -1:
                 try:
                     production = float(f.split()[0])
-                    break
+                    continue
                 except:
                     pass
 
@@ -172,7 +172,8 @@ def get_current_day_data():
         loops -= 1
 
     if float(production) == 0 and cloud_cover == 0 and daylight_hours == 0:
-        raise Exception("Problem getting current production level")
+        raise Exception("Problem getting current production level: %.1f, %d, %.1f" % (production,
+                                                                                      cloud_cover, daylight_hours))
 
     if daylight_hours == 0:
         """
