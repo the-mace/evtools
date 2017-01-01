@@ -609,7 +609,7 @@ def main():
         log.debug("Reporting on SolarCity generation for blog")
         print '<a href="http://share.solarcity.com/teslaliving">@SolarCity</a> Solar Installation'
         print '<h3>System Details</h3>'
-        print "System size is 69 panels at 255W each = %s" % show_with_units(69 * .255)
+        print "System size is 69 panels at 255W each = %.1fkW" % (69 * .255)
         print "%s total power generated via @SolarCity as of %s" % (show_with_units(total_generation),
                                                                     time.strftime("%Y%m%d"))
         print "%s day max on %s" % (show_with_units(data['data'][production_max]['production']), production_max)
