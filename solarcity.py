@@ -68,6 +68,7 @@ from selenium import webdriver
 import csv
 import json
 import datetime
+from dateutil.relativedelta import relativedelta
 import calendar
 import random
 from tl_weather import get_daytime_weather_data
@@ -610,6 +611,9 @@ def main():
         print '<a href="http://share.solarcity.com/teslaliving">@SolarCity</a> Solar Installation'
         print '<h3>System Details</h3>'
         print "System size is 69 panels at 255W each = %.1fkW" % (69 * .255)
+        r = relativedelta(datetime.datetime.now(), datetime.datetime.strptime("2015-02-23", '%Y-%m-%d'))
+        elapsed_months = r.years * 12 + r.months
+        print "System was turned on February 23, 2015 (%d months ago)" % elapsed_months
         print "%s total power generated via @SolarCity as of %s" % (show_with_units(total_generation),
                                                                     time.strftime("%Y%m%d"))
         print "%s day max on %s" % (show_with_units(data['data'][production_max]['production']), production_max)
@@ -617,7 +621,7 @@ def main():
         print "%s average production" % (show_with_units(total_generation / len(data['data'])))
         print "Panel info: "
         print "* Size: 1638 x 982 x 40mm (64.5 x 38.7 x 1.57in)"
-        print "* Vendor: <a href='http://www.canadiansolar.com/solar-panels/cs6p-p.html'>@CanadianSolar CS6P-P</a>"
+        print "* Vendor: <a href='http://www.canadiansolar.com/solar-panels/cs6p-p.html'>CanadianSolar CS6P-P</a>"
         print "Inverter info: "
         print "* <a href='http://www.solaredge.com/sites/default/files/se-single-phase-us-inverter-datasheet.pdf'>SolarEdge SE6000A</a>"
         print " "
