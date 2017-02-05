@@ -90,7 +90,6 @@ loghandler.setFormatter(logging.Formatter(DEF_FRMT))
 logT.addHandler(loghandler)
 logT.setLevel(loglevel)
 
-
 # Get the collection of pictures
 def get_pics():
     if os.path.exists(PICTURES_PATH):
@@ -271,6 +270,16 @@ def is_plugged_in(c, car):
     return plugged_in
 
 
+def is_charging(c, car):
+    rc = False
+    for v in c.vehicles:
+        if v["display_name"] == car:
+            d = v.data_request("charge_state")
+            state = d["charging_state"]
+            if state == "Charging":
+                rc = True
+    return rc
+
 def get_current_state(c, car, include_temps=False):
     s = {}
     for v in c.vehicles:
@@ -306,6 +315,10 @@ def load_data():
         data['daily_state_am'] = {}
     if 'config' in data:
         del data['config']
+    if "day_charges" not in data:
+        data["day_charges"] = 0
+    if "charging" not in data:
+        data["charging"] = False
     return data
 
 
@@ -368,15 +381,18 @@ def report_yesterday(data):
             ownership_months = int((today_ym - start_ym).days / 30)
             m = "Yesterday my #Tesla had a day off. Current mileage is %s miles after %d months " \
                 "@Teslamotors #bot" % ("{:,}".format(int(mileage)), ownership_months)
-        elif False:  # not is_plugged_in(c, CAR_NAME):
-            # Need to skip efficiency stuff here if car didnt charge last night
+        elif data["day_charges"] == 0 or data["day_charges"] > 1:
+            # Need to skip efficiency stuff here if car didnt charge last night or we charged more than once
+            # TODO: Could save prior efficiency from last charge and use that
             day = yesterday_ts
             time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
             w = get_daytime_weather_data(logT, time_value)
-            m = "Yesterday I drove my #Tesla %s miles. Avg temp %.0fF. " \
+            m = "Yesterday I drove my #Tesla %s miles. Avg temp %.0f°F. " \
                 "@Teslamotors #bot" \
                 % ("{:,}".format(int(miles_driven)), w["avg_temp"])
         else:
+            # Drove a distance and charged exactly once since last report, we have enough data
+            # to report efficiency.
             day = yesterday_ts
             time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
             w = get_daytime_weather_data(logT, time_value)
@@ -385,11 +401,11 @@ def report_yesterday(data):
             # Example, drive somewhere and don't charge -- efficiency is zero.
             # Or drive somewhere, charge at SC, then do normal charge - efficiency will look too high.
             if kw_used > 0 and efficiency > 200 and efficiency < 700:
-                m = "Yesterday I drove my #Tesla %s miles using %.1f kWh with an effic. of %d Wh/mi. Avg temp %.0fF. " \
+                m = "Yesterday I drove my #Tesla %s miles using %.1f kWh with an effic. of %d Wh/mi. Avg temp %.0f°F. " \
                     "@Teslamotors #bot" \
                     % ("{:,}".format(int(miles_driven)), kw_used, efficiency, w["avg_temp"])
             else:
-                m = "Yesterday I drove my #Tesla %s miles. Avg temp %.0fF. " \
+                m = "Yesterday I drove my #Tesla %s miles. Avg temp %.0f°F. " \
                     "@Teslamotors #bot" % ("{:,}".format(int(miles_driven)), w["avg_temp"])
         pic = os.path.abspath(random.choice(get_pics()))
     return m, pic
@@ -419,6 +435,8 @@ def main():
     parser.add_argument('--garage', help='Trigger garage door (experimental)', required=False, action='store_true')
     parser.add_argument('--sunroof', help='Control sunroof (vent, open, close)', required=False, type=str)
     parser.add_argument('--mailtest', help='Test emailing', required=False, action='store_true')
+    parser.add_argument('--chargecheck', help='Check if car is currently charging', required=False,
+                        action='store_true')
     args = parser.parse_args()
 
     get_lock()
@@ -482,6 +500,24 @@ def main():
         if int(m / 1000) > int(data["mileage_tweet"] / 1000):
             tweet_major_mileage(int(m / 1000) * 1000)
             data["mileage_tweet"] = m
+            data_changed = True
+
+    elif args.chargecheck:
+        # Check for charges so we can correctly report daily efficiency
+        try:
+            m = is_charging(c, CAR_NAME)
+        except:
+            logT.warning("Couldn't get charge state this pass")
+            return
+
+        if not data["charging"] and m:
+            logT.debug("State change, not charging to charging")
+            data["charging"] = True
+            data["day_charges"] += 1
+            data_changed = True
+        elif data["charging"] and m is False:
+            logT.debug("State change from charging to not charging")
+            data["charging"] = False
             data_changed = True
 
     elif args.state:
@@ -575,6 +611,9 @@ def main():
 
     elif args.yesterday:
         m, pic = report_yesterday(data)
+        data["day_charges"] = 0
+        data_changed = True
+
         if m:
             if DEBUG_MODE:
                 print "Would tweet:\n%s with pic: %s" % (m, pic)
