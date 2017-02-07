@@ -275,8 +275,9 @@ def is_charging(c, car):
     for v in c.vehicles:
         if v["display_name"] == car:
             d = v.data_request("charge_state")
+            logT.debug("   Charging State: %s", d["charging_state"])
             state = d["charging_state"]
-            if state == "Charging":
+            if state == "Charging" or state == "Complete":
                 rc = True
     return rc
 
@@ -387,7 +388,7 @@ def report_yesterday(data):
             day = yesterday_ts
             time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
             w = get_daytime_weather_data(logT, time_value)
-            m = "Yesterday I drove my #Tesla %s miles. Avg temp %.0f°F. " \
+            m = "Yesterday I drove my #Tesla %s miles. Avg temp %.0fF. " \
                 "@Teslamotors #bot" \
                 % ("{:,}".format(int(miles_driven)), w["avg_temp"])
         else:
@@ -401,11 +402,11 @@ def report_yesterday(data):
             # Example, drive somewhere and don't charge -- efficiency is zero.
             # Or drive somewhere, charge at SC, then do normal charge - efficiency will look too high.
             if kw_used > 0 and efficiency > 200 and efficiency < 700:
-                m = "Yesterday I drove my #Tesla %s miles using %.1f kWh with an effic. of %d Wh/mi. Avg temp %.0f°F. " \
+                m = "Yesterday I drove my #Tesla %s miles using %.1f kWh with an effic. of %d Wh/mi. Avg temp %.0fF. " \
                     "@Teslamotors #bot" \
                     % ("{:,}".format(int(miles_driven)), kw_used, efficiency, w["avg_temp"])
             else:
-                m = "Yesterday I drove my #Tesla %s miles. Avg temp %.0f°F. " \
+                m = "Yesterday I drove my #Tesla %s miles. Avg temp %.0fF. " \
                     "@Teslamotors #bot" % ("{:,}".format(int(miles_driven)), w["avg_temp"])
         pic = os.path.abspath(random.choice(get_pics()))
     return m, pic
@@ -511,12 +512,12 @@ def main():
             return
 
         if not data["charging"] and m:
-            logT.debug("State change, not charging to charging")
+            logT.debug("   State change, not charging to charging")
             data["charging"] = True
             data["day_charges"] += 1
             data_changed = True
         elif data["charging"] and m is False:
-            logT.debug("State change from charging to not charging")
+            logT.debug("   State change from charging to not charging")
             data["charging"] = False
             data_changed = True
 
