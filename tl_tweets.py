@@ -319,3 +319,42 @@ def get_following(log, id):
             log.debug("      Killing search due to max loops")
             break
     log.setLevel(old_level)
+
+
+def get_followers(log, id):
+    log.debug("  Getting people following % s", id)
+    check_twitter_config()
+    logging.captureWarnings(True)
+    old_level = log.getEffectiveLevel()
+    log.setLevel(logging.ERROR)
+    twitter = Twython(APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET)
+    log.setLevel(old_level)
+
+    cursor = -1
+    max_loops = 15
+    while cursor != 0:
+        try:
+            log.setLevel(logging.ERROR)
+            following = twitter.get_followers_list(screen_name=id, cursor=cursor, count=200)
+            log.setLevel(old_level)
+        except TwythonAuthError, e:
+            log.exception("   Problem trying to get people following")
+            twitter_auth_issue(e)
+            raise
+        except:
+            raise
+        for u in following["users"]:
+            yield u
+        cursor = following["next_cursor"]
+        if cursor:
+            s = random.randint(55, 65)
+            log.debug("      Sleeping %ds to avoid rate limit. Cursor: %s", s, cursor)
+            time.sleep(s)
+        else:
+            log.debug("      Normal query end")
+
+        max_loops -= 1
+        if max_loops <= 0:
+            log.debug("      Killing search due to max loops")
+            break
+    log.setLevel(old_level)
