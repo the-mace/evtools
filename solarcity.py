@@ -662,8 +662,8 @@ def main():
         print '<li><i>Note 1: Detailed generation tracking started 20150612.</i></li>'
         print '<li><i>Note 2: Cloud/Daylight data <a href="http://forecast.io">Powered by Forecast</a> when ' \
               'SolarCity data missing.</i></li>'
+        print '<li><i>Note 3: System was degraded from 20170530 to 20170726. Up to 30 panels offline.</i></li>'
         print '</ul>'
-        print '<a href="https://gratipay.com/teslaliving/"><img src="//img.shields.io/gratipay/teslaliving.svg"></a>'
 
     if data_changed:
         save_data(data)
