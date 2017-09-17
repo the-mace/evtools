@@ -614,7 +614,7 @@ def main():
                                                                     time.strftime("%Y%m%d"))
         print "%s day max on %s" % (show_with_units(data['data'][production_max]['production']), production_max)
         print "%s day min on %s" % (show_with_units(data['data'][production_min]['production']), production_min)
-        print "<b>%s average production</b>" % (show_with_units(total_generation / len(data['data'])))
+        print "<b>%s daily average production</b>" % (show_with_units(total_generation / len(data['data'])))
         print '<h3>System Details</h3>'
         print "System size is 69 panels at 255W each = %.1fkW" % (69 * .255)
         r = relativedelta(datetime.datetime.now(), datetime.datetime.strptime("2015-02-23", '%Y-%m-%d'))
