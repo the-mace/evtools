@@ -109,7 +109,7 @@ def tweet_string(message, log, media=None):
     twitter = Twython(APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET)
 
     retries = 0
-    while retries < 5:
+    while retries < 2:
         log.setLevel(logging.ERROR)
         try:
             if media:
