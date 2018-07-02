@@ -116,7 +116,7 @@ else:
 
 
 def get_current_day_data():
-    driver = webdriver.Firefox()
+    driver = webdriver.Chrome()
     driver.implicitly_wait(30)
 
     try:
