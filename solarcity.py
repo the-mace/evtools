@@ -194,6 +194,9 @@ def get_current_day_data():
     # If we get here everything worked, shut down the browser
     driver.quit()
 
+    if os.path.exists("geckodriver.log"):
+        os.remove("geckodriver.log")
+
     return daylight_hours, cloud_cover, production
 
 
