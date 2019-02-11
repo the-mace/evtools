@@ -97,7 +97,7 @@ def twitter_auth_issue(e):
     message = "There was a problem with automated tweet operations:\n\n"
     message += e
     message += "\nPlease investigate."
-    print >> sys.stderr, message
+    print(message, file=sys.stderr)
 
 
 def tweet_string(message, log, media=None):
@@ -119,7 +119,7 @@ def tweet_string(message, log, media=None):
             else:
                 twitter.update_status(status=message.encode('utf-8').strip())
             break
-        except TwythonAuthError, e:
+        except TwythonAuthError as e:
             log.setLevel(old_level)
             log.exception("   Problem trying to tweet string")
             twitter_auth_issue(e)
@@ -155,7 +155,7 @@ def tweet_search(log, item, limit=50):
     twitter = Twython(APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET)
     try:
         result = twitter.search(q=item, count=limit)
-    except TwythonAuthError, e:
+    except TwythonAuthError as e:
         twitter_auth_issue(e)
         raise
     except:
@@ -176,7 +176,7 @@ def check_relationship(log, id):
     twitter = Twython(APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET)
     try:
         result = twitter.show_friendship(source_screen_name=my_screen_name, target_screen_name=id)
-    except TwythonAuthError, e:
+    except TwythonAuthError as e:
         log.setLevel(old_level)
         log.exception("   Problem trying to check relationship")
         twitter_auth_issue(e)
@@ -196,7 +196,7 @@ def follow_twitter_user(log, id):
     twitter = Twython(APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET)
     try:
         twitter.create_friendship(screen_name=id)
-    except TwythonAuthError, e:
+    except TwythonAuthError as e:
         log.setLevel(old_level)
         log.exception("   Problem trying to follow twitter user")
         twitter_auth_issue(e)
@@ -215,7 +215,7 @@ def unfollow_twitter_user(log, id):
     twitter = Twython(APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET)
     try:
         twitter.destroy_friendship(screen_name=id)
-    except TwythonAuthError, e:
+    except TwythonAuthError as e:
         log.setLevel(old_level)
         log.exception("Error unfollowing %s", id)
         twitter_auth_issue(e)
@@ -234,7 +234,7 @@ def get_account_details(log, id):
     twitter = Twython(APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET)
     try:
         details = twitter.show_user(screen_name=id)
-    except TwythonAuthError, e:
+    except TwythonAuthError as e:
         log.setLevel(old_level)
         log.exception("   Problem trying to get account details")
         twitter_auth_issue(e)
@@ -266,7 +266,7 @@ def get_screen_name(log):
         twitter = Twython(APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET)
         try:
             details = twitter.verify_credentials()
-        except TwythonAuthError, e:
+        except TwythonAuthError as e:
             log.setLevel(old_level)
             log.exception("   Problem trying to get screen name")
             twitter_auth_issue(e)
@@ -298,7 +298,7 @@ def get_following(log, id):
             log.setLevel(logging.ERROR)
             following = twitter.get_friends_list(screen_name=id, cursor=cursor, count=200)
             log.setLevel(old_level)
-        except TwythonAuthError, e:
+        except TwythonAuthError as e:
             log.exception("   Problem trying to get people following")
             twitter_auth_issue(e)
             raise
@@ -337,7 +337,7 @@ def get_followers(log, id):
             log.setLevel(logging.ERROR)
             following = twitter.get_followers_list(screen_name=id, cursor=cursor, count=200)
             log.setLevel(old_level)
-        except TwythonAuthError, e:
+        except TwythonAuthError as e:
             log.exception("   Problem trying to get people following")
             twitter_auth_issue(e)
             raise

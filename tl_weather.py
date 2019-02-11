@@ -29,7 +29,7 @@ Uses http://ipinfo.io to look up current location
 """
 
 import os
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import datetime
 import json
 
@@ -55,7 +55,7 @@ def get_daytime_weather_data(log, weather_time=None, location=None):
     if not location:
         # Get current location
         try:
-            l = json.load(urllib.urlopen('http://ipinfo.io/json'))
+            l = json.load(urllib.request.urlopen('http://ipinfo.io/json'))
             location = l["loc"]
             if log:
                 log.debug("Get weather data for %s (%s) at %s",
@@ -67,9 +67,9 @@ def get_daytime_weather_data(log, weather_time=None, location=None):
     # Now get the weather at this location
     weather_info = {}
     if weather_time:
-        fp = urllib.urlopen(DARKSKY_URL % (DARKSKY_API_KEY, location, int(weather_time)))
+        fp = urllib.request.urlopen(DARKSKY_URL % (DARKSKY_API_KEY, location, int(weather_time)))
     else:
-        fp = urllib.urlopen(DARKSKY_URL_NO_TIME % (DARKSKY_API_KEY, location))
+        fp = urllib.request.urlopen(DARKSKY_URL_NO_TIME % (DARKSKY_API_KEY, location))
 
     data = ""
     # Get weather data and convert json to dict
@@ -77,7 +77,7 @@ def get_daytime_weather_data(log, weather_time=None, location=None):
         d = fp.read()
         if not d:
             break
-        data += d
+        data += d.decode()
 
     try:
         weather = json.loads(data)

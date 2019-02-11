@@ -64,7 +64,7 @@ else:
 
 
 def email(email, message, subject, cc=None, bcc=None):
-    msg = MIMEText(message.encode('utf-8').strip())
+    msg = MIMEText(message.strip())
 
     # make sure the user provided all the parameters
     if not email:

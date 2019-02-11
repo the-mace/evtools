@@ -26,17 +26,17 @@ Description:
 Stock quote helper functions
 """
 
-import urllib
-import re
+import urllib.request, urllib.parse, urllib.error
+import json
 
 
 def get_stock_quote(stock, log):
     log.debug("Get current stock quote for %s" % stock)
 
-    data = urllib.urlopen('http://finance.google.com/finance?q=%s' % stock).read()
-    m = re.search('id="ref_(.*?)">(.*?)<', data)
-    if m:
-        quote = m.group(2)
+    data = urllib.request.urlopen('https://api.iextrading.com/1.0/stock/%s/quote' % stock).read()
+    results = json.loads(data)
+    if results:
+        quote = results['latestPrice']
     else:
         quote = None
     return quote

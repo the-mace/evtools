@@ -54,7 +54,7 @@ from logging.handlers import RotatingFileHandler
 import traceback
 import time
 import random
-from urllib2 import HTTPError
+from urllib.error import HTTPError
 import datetime
 from tl_tweets import tweet_string
 from tl_email import email
@@ -124,7 +124,7 @@ def mail_exception(e):
     message += e
     message += "\nPlease investigate."
     if DEBUG_MODE:
-        raise
+        raise Exception("email issues")
     else:
         email(email=TESLA_EMAIL, message=message, subject="Tesla script error")
 
@@ -139,11 +139,11 @@ def establish_connection(token=None):
 def tweet_major_mileage(miles, get_tweet=False):
     m = "{:,}".format(miles)
     a = random.choice(["an amazing", "an awesome", "a fantastic", "a wonderful"])
-    message = "Just passed %s miles on my Model S! It's been %s experience. " \
+    message = "Just passed %s miles on my Model S 75D! It's been %s experience. " \
               "#Tesla @TeslaMotors @Teslarati #bot" % (m, a)
     pic = random.choice(get_pics())
     if DEBUG_MODE:
-        print "Would tweet:\n%s with pic: %s" % (message, pic)
+        print("Would tweet:\n%s with pic: %s" % (message, pic))
         logT.debug("DEBUG mode, not tweeting: %s with pic: %s", message, pic)
     else:
         logT.info("Tweeting: %s with pic: %s", message, pic)
@@ -465,7 +465,7 @@ def main():
     if args.status:
         # Dump current Tesla status
         try:
-            print dump_current_tesla_status(c)
+            print(dump_current_tesla_status(c))
         except:
             logT.warning("Couldn't dump status this pass")
 
@@ -555,12 +555,12 @@ def main():
         ts = args.day
         raw = ""
         if ts in data["daily_state_am"]:
-            print "Data for %s am:" % ts
+            print("Data for %s am:" % ts)
             for i in ("odometer", "soc", "ideal_range", "rated_range", "estimated_range", "charge_energy_added",
                       "charge_miles_added_ideal", "charge_miles_added_rated"):
-                print "%s: %s" % (i, data["daily_state_am"][ts][i])
+                print("%s: %s" % (i, data["daily_state_am"][ts][i]))
                 raw += "%s\t" % data["daily_state_am"][ts][i]
-            print "\nRaw: %s" % raw
+            print("\nRaw: %s" % raw)
 
     elif args.report:
         # Show total and average energy added
@@ -569,19 +569,19 @@ def main():
             if ts < "20151030":
                 continue
             total_energy_added += data["daily_state_am"][ts]["charge_energy_added"]
-        print "Total Energy Added: %s kW" % "{:,.2f}".format(total_energy_added)
-        print "Average Energy Added: %s kW" % "{:,.2f}".format((total_energy_added / len(data["daily_state_am"])))
+        print("Total Energy Added: %s kW" % "{:,.2f}".format(total_energy_added))
+        print("Average Energy Added: %s kW" % "{:,.2f}".format((total_energy_added / len(data["daily_state_am"]))))
 
     elif args.export:
         # Export all saved Tesla state information
         for ts in sorted(data["daily_state_am"]):
             if ts < "20151030":
                 continue
-            print "%s," % ts,
+            print("%s," % ts, end=' ')
             for i in ("odometer", "soc", "ideal_range", "rated_range", "estimated_range", "charge_energy_added",
                       "charge_miles_added_ideal", "charge_miles_added_rated"):
-                print "%s," % data["daily_state_am"][ts][i],
-            print ""
+                print("%s," % data["daily_state_am"][ts][i], end=' ')
+            print("")
 
     elif args.pluggedin:
         # Check if the Tesla is plugged in and alert if not
@@ -605,10 +605,10 @@ def main():
         try:
             email(email=TESLA_EMAIL, message=message, subject="Tesla Email Test")
             logT.debug("   Successfully sent the mail.")
-            print "Mail send passed."
+            print("Mail send passed.")
         except:
             logT.exception("Problem trying to send mail")
-            print "Mail send failed, see log."
+            print("Mail send failed, see log.")
 
     elif args.yesterday:
         m, pic = report_yesterday(data)
@@ -617,7 +617,7 @@ def main():
 
         if m:
             if DEBUG_MODE:
-                print "Would tweet:\n%s with pic: %s" % (m, pic)
+                print("Would tweet:\n%s with pic: %s" % (m, pic))
                 logT.debug("DEBUG mode, not tweeting: %s with pic: %s", m, pic)
             else:
                 logT.info("Tweeting: %s with pic: %s", m, pic)
@@ -647,7 +647,7 @@ if __name__ == '__main__':
             break
         except SystemExit:
             break
-        except HTTPError, e:
+        except HTTPError as e:
             if e.code >= 500 or e.code == 408:
                 logT.debug("Transient error from Tesla API: %d", e.code)
                 logT.debug("Retrying again in %d seconds", RETRY_SLEEP)
@@ -656,8 +656,14 @@ if __name__ == '__main__':
                 # Unlock and retry
                 remove_lock()
             else:
-                mail_exception(traceback.format_exc())
+                if DEBUG_MODE:
+                    raise
+                else:
+                    mail_exception(traceback.format_exc())
                 break
         except:
-            mail_exception(traceback.format_exc())
+            if DEBUG_MODE:
+                raise
+            else:
+                mail_exception(traceback.format_exc())
             break

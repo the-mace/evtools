@@ -56,14 +56,13 @@ import os
 import argparse
 import fcntl
 import time
-import urllib
-import urllib2
+import urllib.request, urllib.parse, urllib.error
+import urllib.request, urllib.error, urllib.parse
 import logging
 from logging.handlers import RotatingFileHandler
 import traceback
 from tl_tweets import tweet_string, tweet_price
 from tl_email import email
-from tl_stock import get_stock_quote
 from selenium import webdriver
 import csv
 import json
@@ -218,7 +217,7 @@ def tweet_production(daylight_hours, cloud_cover, production, special):
                   (show_with_units(production), extra)
 
     if DEBUG_MODE:
-        print "Would tweet:\n%s" % message
+        print("Would tweet:\n%s" % message)
         log.debug("DEBUG mode, not tweeting: %s", message)
     else:
         media = random.choice(SOLAR_IMAGES)
@@ -232,7 +231,7 @@ def tweet_month(data):
     message = "This months @SolarCity Production was %s. %s generated in the last 365 days. #gosolar #bot" % \
               (show_with_units(generated_this_month), show_with_units(generated_this_year))
     if DEBUG_MODE:
-        print "Would tweet:\n%s" % message
+        print("Would tweet:\n%s" % message)
         log.debug("DEBUG mode, not tweeting: %s", message)
     else:
         tweet_string(message=message, log=log, media=random.choice(SOLAR_IMAGES))
@@ -244,7 +243,7 @@ def tweet_year(data):
     message = "This years @SolarCity Production was %s! %s generated since install :) #gosolar #bot" % \
               (show_with_units(generated_this_year), show_with_units(total_generation))
     if DEBUG_MODE:
-        print "Would tweet:\n%s" % message
+        print("Would tweet:\n%s" % message)
         log.debug("DEBUG mode, not tweeting: %s", message)
     else:
         tweet_string(message=message, log=log, media=random.choice(SOLAR_IMAGES))
@@ -338,9 +337,9 @@ def analyze_weather(data):
             else:
                 ss_daylight = 0
 
-            print "%s Cloud: %d%% Daylight: %.1f (API Cloud: %d%%, Daylight: %.1f)" % (day, ss_cloud,
+            print("%s Cloud: %d%% Daylight: %.1f (API Cloud: %d%%, Daylight: %.1f)" % (day, ss_cloud,
                                                                                        ss_daylight, cloud_cover,
-                                                                                       daylight_hours)
+                                                                                       daylight_hours))
         else:
             if 'cloud' in d:
                 cloud_cover = d['cloud']
@@ -350,7 +349,7 @@ def analyze_weather(data):
                 daylight_hours = d['daylight']
             else:
                 daylight_hours = 0
-            print "%s API Cloud: %d%% API Daylight: %.1f" % (day, cloud_cover, daylight_hours)
+            print("%s API Cloud: %d%% API Daylight: %.1f" % (day, cloud_cover, daylight_hours))
 
 
 def save_data(data):
@@ -420,7 +419,7 @@ def solarcity_report(data, no_email=False, no_tweet=False):
     message += "Teslaliving\nhttp://teslaliving.net"
 
     if no_email or DEBUG_MODE:
-        print "Would email message:\n%s" % message
+        print("Would email message:\n%s" % message)
     else:
         log.debug("   email report")
         email(email=SOLARCITY_USER, message=message, subject="Weekly SolarCity Report")
@@ -429,7 +428,7 @@ def solarcity_report(data, no_email=False, no_tweet=False):
         tweet_message = "%s generated last week with @SolarCity. " % show_with_units(generated_this_week)
         tweet_message += "%s generated in the last 30 days. #GoSolar #bot" % show_with_units(generated_this_month)
         if DEBUG_MODE:
-            print "Would Tweet string:\n%s" % tweet_message
+            print("Would Tweet string:\n%s" % tweet_message)
         else:
             tweet_string(message=tweet_message, log=log, media=random.choice(SOLAR_IMAGES))
 
@@ -470,14 +469,14 @@ def upload_to_pvoutput(data, day):
     pvdata["tx"] = "%.1f" % ((w["high_temp"] - 32) * 5.0 / 9.0)
     pvdata["cm"] = "Daylight hours: %.1f, Cloud cover: %d%%" % (data["data"][day]["daylight"],
                                                                 data["data"][day]["cloud"])
-    data = urllib.urlencode(pvdata)
+    data = urllib.parse.urlencode(pvdata)
 
     headers = {}
     headers["X-Pvoutput-Apikey"] = pvoutput_key
     headers["X-Pvoutput-SystemId"] = pvoutput_id
 
-    req = urllib2.Request("http://pvoutput.org/service/r2/addoutput.jsp", data, headers)
-    response = urllib2.urlopen(req)
+    req = urllib.request.Request("http://pvoutput.org/service/r2/addoutput.jsp", data, headers)
+    response = urllib.request.urlopen(req)
     output = response.read()
     log.debug("   Upload response: %s", output)
 
@@ -489,22 +488,12 @@ def main():
     parser.add_argument('--no_tweet', help='Dont post tweets', required=False, action='store_true')
     parser.add_argument('--report', help='Generate report', required=False, action='store_true')
     parser.add_argument('--blog', help='Generate html report page', required=False, action='store_true')
-    parser.add_argument('--stocktweet', help='Tweet current SolarCity stock price', required=False, action='store_true')
     parser.add_argument('--daily', help='Report on daily generation', required=False, action='store_true')
     parser.add_argument('--monthly', help='Report on monthly generation', required=False, action='store_true')
     parser.add_argument('--yearly', help='Report on yearly generation', required=False, action='store_true')
     parser.add_argument('--weather', help='Report weather for given date (YYYYMMDD)', required=False, type=str)
     parser.add_argument('--pvoutput', help="Send data for date (YYYYMMDD) to PVOutput.org", required=False, type=str)
     args = parser.parse_args()
-
-    if args.stocktweet:
-        quote = get_stock_quote(stock='SCTY', log=log)
-        if quote and not DEBUG_MODE:
-            tweet_price(price=quote, log=log, stock='SCTY', extra='http://share.solarcity.com/teslaliving #GoSolar',
-                        image="images/TeslalivingLogo.jpg")
-        elif quote:
-            print "Would tweet price: $%s" % quote
-        return
 
     # Make sure we only run one instance at a time
     fp = open('/tmp/solarcity.lock', 'w')
@@ -562,26 +551,26 @@ def main():
         else:
             time_value = time.mktime(time.strptime("%s2100" % args.weather, "%Y%m%d%H%M"))
         w = get_daytime_weather_data(log, time_value)
-        print "Weather as of %s:" % datetime.datetime.fromtimestamp(time_value)
-        print "   Average temperature: %.1fF" % w["avg_temp"]
-        print "   Low temperature: %.1fF" % w["low_temp"]
-        print "   Cloud Cover: %d%%" % w["cloud_cover"]
-        print "   Daylight hours: %.1f" % w["daylight"]
-        print "   Description: %s" % w["description"]
-        print "   Precipitation type: %s" % w["precip_type"]
-        print "   Precipitation Chance: %d%%" % w["precip_probability"]
+        print("Weather as of %s:" % datetime.datetime.fromtimestamp(time_value))
+        print("   Average temperature: %.1fF" % w["avg_temp"])
+        print("   Low temperature: %.1fF" % w["low_temp"])
+        print("   Cloud Cover: %d%%" % w["cloud_cover"])
+        print("   Daylight hours: %.1f" % w["daylight"])
+        print("   Description: %s" % w["description"])
+        print("   Precipitation type: %s" % w["precip_type"])
+        print("   Precipitation Chance: %d%%" % w["precip_probability"])
         # analyze_weather(data)
 
     if args.pvoutput is not None:
         if int(args.pvoutput) == 0:
-            print "Uploading historical data to pvoutput.org"
+            print("Uploading historical data to pvoutput.org")
             for d in data["data"]:
-                print "   Processing date %s" % d
+                print("   Processing date %s" % d)
                 try:
                     upload_to_pvoutput(data, d)
                 except:
-                    print "      problem with date %s" % d
-                print "      Sleeping"
+                    print("      problem with date %s" % d)
+                print("      Sleeping")
                 # You'll need longer sleeps if you didnt donate
                 time.sleep(15)
         else:
@@ -611,29 +600,29 @@ def main():
     if args.blog:
         # Export all entries found for posting to static page on blog: teslaliving.net/solarcity
         log.debug("Reporting on SolarCity generation for blog")
-        print '<a href="http://share.solarcity.com/teslaliving">@SolarCity</a> Solar Installation'
-        print '<h3>System Results</h3>'
-        print "<b>%s total power generated via @SolarCity as of %s</b>" % (show_with_units(total_generation),
-                                                                    time.strftime("%Y%m%d"))
-        print "%s day max on %s" % (show_with_units(data['data'][production_max]['production']), production_max)
-        print "%s day min on %s" % (show_with_units(data['data'][production_min]['production']), production_min)
-        print "<b>%s daily average production</b>" % (show_with_units(total_generation / len(data['data'])))
-        print '<h3>System Details</h3>'
-        print "System size is 69 panels at 255W each = %.1fkW" % (69 * .255)
+        print('<a href="http://share.solarcity.com/teslaliving">@SolarCity</a> Solar Installation')
+        print('<h3>System Results</h3>')
+        print("<b>%s total power generated via @SolarCity as of %s</b>" % (show_with_units(total_generation),
+                                                                    time.strftime("%Y%m%d")))
+        print("%s day max on %s" % (show_with_units(data['data'][production_max]['production']), production_max))
+        print("%s day min on %s" % (show_with_units(data['data'][production_min]['production']), production_min))
+        print("<b>%s daily average production</b>" % (show_with_units(total_generation / len(data['data']))))
+        print('<h3>System Details</h3>')
+        print("System size is 69 panels at 255W each = %.1fkW" % (69 * .255))
         r = relativedelta(datetime.datetime.now(), datetime.datetime.strptime("2015-02-23", '%Y-%m-%d'))
         elapsed_months = r.years * 12 + r.months
-        print "System was turned on February 23, 2015 (%d months ago)" % elapsed_months
-        print "Panel info: "
-        print "* Size: 1638 x 982 x 40mm (64.5 x 38.7 x 1.57in)"
-        print "* Vendor: <a href='http://www.canadiansolar.com/solar-panels/cs6p-p.html'>CanadianSolar CS6P-P</a>"
-        print "Inverter info: "
-        print "* <a href='http://www.solaredge.com/sites/default/files/se-single-phase-us-inverter-datasheet.pdf'>SolarEdge SE6000A</a>"
-        print " "
-        print 'Sign up for <a href="http://share.solarcity.com/teslaliving">SolarCity</a> and save on electric!'
+        print("System was turned on February 23, 2015 (%d months ago)" % elapsed_months)
+        print("Panel info: ")
+        print("* Size: 1638 x 982 x 40mm (64.5 x 38.7 x 1.57in)")
+        print("* Vendor: <a href='http://www.canadiansolar.com/solar-panels/cs6p-p.html'>CanadianSolar CS6P-P</a>")
+        print("Inverter info: ")
+        print("* <a href='http://www.solaredge.com/sites/default/files/se-single-phase-us-inverter-datasheet.pdf'>SolarEdge SE6000A</a>")
+        print(" ")
+        print('Sign up for <a href="http://share.solarcity.com/teslaliving">SolarCity</a> and save on electric!')
 
-        print '<h3>Chart via <a href="http://pvoutput.org/list.jsp?id=48753&sid=44393">PVOutput</a></h3>[hoops name="pvoutput"]'
-        print '<h3>Daily Log:</h3>'
-        print "%s%s%s&nbsp;&nbsp;%s&nbsp;&nbsp;%s" % ("Date", "&nbsp;" * 11, "Production", "Daylight", "Cloud Cover")
+        print('<h3>Chart via <a href="http://pvoutput.org/list.jsp?id=48753&sid=44393">PVOutput</a></h3>[hoops name="pvoutput"]')
+        print('<h3>Daily Log:</h3>')
+        print("%s%s%s&nbsp;&nbsp;%s&nbsp;&nbsp;%s" % ("Date", "&nbsp;" * 11, "Production", "Daylight", "Cloud Cover"))
         d = data['data']
         for e in sorted(d, reverse=True):
             production = d[e]['production']
@@ -654,19 +643,19 @@ def main():
                 data_changed = True
 
             if production is not None and daylight is not None and cloud is not None:
-                print '%s' % e, '&nbsp;&nbsp;&nbsp;&nbsp;%s&nbsp;%.1f hrs&nbsp;%d%%' % \
-                                (show_with_units(production), daylight, cloud)
+                print('%s' % e, '&nbsp;&nbsp;&nbsp;&nbsp;%s&nbsp;%.1f hrs&nbsp;%d%%' % \
+                                (show_with_units(production), daylight, cloud))
             else:
-                print '%s' % e, '&nbsp;&nbsp;&nbsp;&nbsp;%s' % show_with_units(production)
+                print('%s' % e, '&nbsp;&nbsp;&nbsp;&nbsp;%s' % show_with_units(production))
 
-        print '\nSign up for <a href="http://share.solarcity.com/teslaliving">SolarCity</a> and save on electric!'
-        print '\nFollow <a href="https://twitter.com/teslaliving">@TeslaLiving</a>.'
-        print '\n<ul>'
-        print '<li><i>Note 1: Detailed generation tracking started 20150612.</i></li>'
-        print '<li><i>Note 2: Cloud/Daylight data <a href="http://forecast.io">Powered by Forecast</a> when ' \
-              'SolarCity data missing.</i></li>'
-        print '<li><i>Note 3: System was degraded from 20170530 to 20170726. Up to 30 panels offline.</i></li>'
-        print '</ul>'
+        print('\nSign up for <a href="http://share.solarcity.com/teslaliving">SolarCity</a> and save on electric!')
+        print('\nFollow <a href="https://twitter.com/teslaliving">@TeslaLiving</a>.')
+        print('\n<ul>')
+        print('<li><i>Note 1: Detailed generation tracking started 20150612.</i></li>')
+        print('<li><i>Note 2: Cloud/Daylight data <a href="http://forecast.io">Powered by Forecast</a> when ' \
+              'SolarCity data missing.</i></li>')
+        print('<li><i>Note 3: System was degraded from 20170530 to 20170726. Up to 30 panels offline.</i></li>')
+        print('</ul>')
 
     if data_changed:
         save_data(data)

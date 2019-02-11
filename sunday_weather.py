@@ -44,13 +44,13 @@ def main():
 
     t = datetime.datetime.strptime("%04d01012100" % args.year, "%Y%m%d%H%M")
     current_year = t.year
-    print "date,avg temp,low temp,cloud cover,precip type,precip probability"
+    print("date,avg temp,low temp,cloud cover,precip type,precip probability")
     while t.year == current_year and t < datetime.datetime.now():
         ts = "%04d%02d%02d" % (t.year, t.month, t.day)
         if t.weekday() == 6:
             w = get_daytime_weather_data(logging, time.mktime(t.timetuple()))
-            print "%s,%.1f,%.1f,%d%%,%s,%d%%" % (ts, w["avg_temp"], w["low_temp"], w["cloud_cover"],
-                                                 w["precip_type"], w["precip_probability"])
+            print("%s,%.1f,%.1f,%d%%,%s,%d%%" % (ts, w["avg_temp"], w["low_temp"], w["cloud_cover"],
+                                                 w["precip_type"], w["precip_probability"]))
 
         t = t + datetime.timedelta(days=1)
 

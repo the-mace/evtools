@@ -1,6 +1,6 @@
 [submodule "teslajson"]
 	path = teslajson
-	url = https://github.com/the-mace/teslajson.git
+	url = https://github.com/gglockner/teslajson.git
 [submodule "twython"]
 	path = twython
 	url = https://github.com/ryanmcgrath/twython
