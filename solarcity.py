@@ -475,7 +475,7 @@ def upload_to_pvoutput(data, day):
     headers["X-Pvoutput-Apikey"] = pvoutput_key
     headers["X-Pvoutput-SystemId"] = pvoutput_id
 
-    req = urllib.request.Request("http://pvoutput.org/service/r2/addoutput.jsp", data, headers)
+    req = urllib.request.Request("http://pvoutput.org/service/r2/addoutput.jsp", data.encode('utf-8'), headers)
     response = urllib.request.urlopen(req)
     output = response.read()
     log.debug("   Upload response: %s", output)
