@@ -59,6 +59,7 @@ import datetime
 from tl_tweets import tweet_string
 from tl_email import email
 from tl_weather import get_daytime_weather_data
+import glob
 
 import sys
 basepath = os.path.dirname(sys.argv[0])
@@ -80,6 +81,7 @@ CAR_NAME = os.environ['TESLA_CAR_NAME']
 
 # Some of the tweets attach pictures. They're randomly chosen from this path
 PICTURES_PATH = os.path.expanduser(os.getenv('TESLA_PICTURES_PATH', "images/favorites"))
+VERSION_IMAGES = glob.glob('images/versions/*-watermark*')
 
 # Logging setup
 DEF_FRMT = "%(asctime)s : %(levelname)-8s : %(funcName)-25s:%(lineno)-4s: %(message)s"
@@ -420,6 +422,50 @@ def get_update_for_yesterday():
     return m, pic
 
 
+def check_current_firmware_version(c, data):
+    v = None
+    changed = False
+    try:
+        v = c.vehicles[0].data_request("vehicle_state")["car_version"].split(" ")[0]
+        logT.debug("Found firmware version %s", v)
+    except:
+        logT.warning("Problems getting firmware version")
+
+    t = datetime.date.today()
+    ts = t.strftime("%Y%m%d")
+
+    if "firmware" in data:
+        if data["firmware"]["version"] != v:
+            # TODO: Log new one found
+            data["firmware"]["version"] = v
+            data["firmware"]["date_detected"] = ts
+            changed = True
+        else:
+            last_date = time.strptime(data["firmware"]["date_detected"], "%Y%m%d")
+            last_date = datetime.date.fromtimestamp(time.mktime(last_date))
+            time_since = (datetime.date.today() - last_date).days
+
+            firmware_date = time.strptime(v[:7]+".6", "%Y.%W.%w")
+            firmware_age = (datetime.date.today() - datetime.date.fromtimestamp(time.mktime(firmware_date))).days
+
+            message = "My 2018 S75D is running firmware version %s. " \
+                      "Firmware is ~%d days old. " \
+                      "%d days since last update #bot" % (v, firmware_age, time_since)
+            pic = random.choice(VERSION_IMAGES)
+            if DEBUG_MODE:
+                print("Would tweet:\n%s with pic: %s" % (message, pic))
+                logT.debug("DEBUG mode, not tweeting: %s with pic: %s", message, pic)
+            else:
+                logT.info("Tweeting: %s with pic: %s", message, pic)
+                tweet_string(message=message, log=logT, media=pic)
+    else:
+        data["firmware"] = {}
+        data["firmware"]["version"] = v
+        data["firmware"]["date_detected"] = ts
+        changed = True
+    return changed
+
+
 def main():
     parser = argparse.ArgumentParser(description='Tesla Control')
     parser.add_argument('--status', help='Get car status', required=False, action='store_true')
@@ -438,6 +484,7 @@ def main():
     parser.add_argument('--mailtest', help='Test emailing', required=False, action='store_true')
     parser.add_argument('--chargecheck', help='Check if car is currently charging', required=False,
                         action='store_true')
+    parser.add_argument('--firmware', help='Check for new firmware versions', required=False, action='store_true')
     args = parser.parse_args()
 
     get_lock()
@@ -628,6 +675,10 @@ def main():
     elif args.garage:
         # Open garage door (experimental as I dont have an AP car)
         trigger_garage_door(c, CAR_NAME)
+
+    elif args.firmware:
+        # Check firmware version for a change
+        data_changed = check_current_firmware_version(c, data)
 
     elif args.sunroof:
         # Change sunroof state
