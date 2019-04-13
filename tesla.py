@@ -26,7 +26,7 @@ Description:
 Monitor your Tesla via the unofficial Tesla API
 
 Supply your myTesla login information via environment variables:
-    TESLA_EMAIL
+    TESLA_EMAILcheck_current_firmware_version
     TESLA_PASSWORD
 
 Uses third party library:
@@ -445,7 +445,11 @@ def check_current_firmware_version(c, data):
             last_date = datetime.date.fromtimestamp(time.mktime(last_date))
             time_since = (datetime.date.today() - last_date).days
 
-            firmware_date = time.strptime(v[:7]+".6", "%Y.%W.%w")
+            try:
+                firmware_date = time.strptime(v[:7]+".6", "%Y.%W.%w")
+            except:
+                return changed
+
             firmware_age = (datetime.date.today() - datetime.date.fromtimestamp(time.mktime(firmware_date))).days
 
             message = "My 2018 S75D is running firmware version %s. " \
