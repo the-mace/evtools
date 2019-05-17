@@ -79,7 +79,9 @@ PAGE_LOAD_TIMEOUT = 240 * 1000
 AUTH_URL = 'https://login.solarcity.com/account/SignIn'
 
 # Where logging output from this tool goes. Modify path as needed
-LOGFILE = os.path.expanduser("~/script/logs/solarcity.log")
+LOGFILE = os.environ.get('LOGFILE')
+if not LOGFILE:
+    LOGFILE = os.path.expanduser("~/script/logs/solarcity.log")
 
 # Data file containing all the saved state information
 DATA_FILE = "solarcity.json"
@@ -97,7 +99,9 @@ log.addHandler(loghandler)
 log.setLevel(loglevel)
 
 # Get the collection of pictures
-SOLAR_IMAGES = [os.path.join(PICTURES_PATH, f) for f in os.listdir(PICTURES_PATH) if not f.startswith('.')]
+SOLAR_IMAGES = []
+if os.path.exists(PICTURES_PATH):
+    SOLAR_IMAGES = [os.path.join(PICTURES_PATH, f) for f in os.listdir(PICTURES_PATH) if not f.startswith('.')]
 
 # Set to true to disable tweets/data file updates
 DEBUG_MODE = False
@@ -199,6 +203,11 @@ def get_current_day_data():
     return daylight_hours, cloud_cover, production
 
 
+def solar_image():
+    if SOLAR_IMAGES:
+        return random.choice(SOLAR_IMAGES)
+
+
 def tweet_production(daylight_hours, cloud_cover, production, special):
     if special == "high":
         extra = "A new high record :) "
@@ -220,7 +229,7 @@ def tweet_production(daylight_hours, cloud_cover, production, special):
         print("Would tweet:\n%s" % message)
         log.debug("DEBUG mode, not tweeting: %s", message)
     else:
-        media = random.choice(SOLAR_IMAGES)
+        media = solar_image()
         log.debug("Using media: %s", media)
         tweet_string(message=message, log=log, media=media)
 
@@ -234,7 +243,7 @@ def tweet_month(data):
         print("Would tweet:\n%s" % message)
         log.debug("DEBUG mode, not tweeting: %s", message)
     else:
-        tweet_string(message=message, log=log, media=random.choice(SOLAR_IMAGES))
+        tweet_string(message=message, log=log, media=solar_image())
 
 
 def tweet_year(data):
@@ -430,7 +439,7 @@ def solarcity_report(data, no_email=False, no_tweet=False):
         if DEBUG_MODE:
             print("Would Tweet string:\n%s" % tweet_message)
         else:
-            tweet_string(message=tweet_message, log=log, media=random.choice(SOLAR_IMAGES))
+            tweet_string(message=tweet_message, log=log, media=solar_image())
 
 
 def upload_to_pvoutput(data, day):
