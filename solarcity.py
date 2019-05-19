@@ -583,9 +583,9 @@ def main():
             daylight_hours, cloud_cover, production = get_current_day_data()
             data['data'][current_day] = {'daylight': daylight_hours, 'cloud': cloud_cover, 'production': production}
             special = None
-            if production > data['data'][production_max]['production']:
+            if production_max is None or production > data['data'][production_max]['production']:
                 special = "high"
-            if production < data['data'][production_min]['production']:
+            elif production_min is None or production < data['data'][production_min]['production']:
                 special = "low"
             tweet_production(daylight_hours, cloud_cover, production, special)
             data['config']['lastdailytweet'] = current_day
