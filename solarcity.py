@@ -596,11 +596,13 @@ def main():
                 special = "high"
             elif production_min is None or production < data['data'][production_min]['production']:
                 special = "low"
-            tweet_production(daylight_hours, cloud_cover, production, special)
-            data['config']['lastdailytweet'] = current_day
+            if not args.no_tweet:
+                tweet_production(daylight_hours, cloud_cover, production, special)
+                data['config']['lastdailytweet'] = current_day
             data_changed = True
-            # Now upload to pvoutput
-            upload_to_pvoutput(data, current_day)
+            if args.pvoutput is not None:
+                # Now upload to pvoutput
+                upload_to_pvoutput(data, current_day)
 
     if args.report:
         # Send/Run weekly solarcity summary report
