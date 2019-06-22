@@ -28,12 +28,14 @@ Stock quote helper functions
 
 import urllib.request, urllib.parse, urllib.error
 import json
+import os
 
 
 def get_stock_quote(stock, log):
     log.debug("Get current stock quote for %s" % stock)
+    token = os.getenv("TL_IEXAPI_TOKEN")
 
-    data = urllib.request.urlopen('https://api.iextrading.com/1.0/stock/%s/quote' % stock).read()
+    data = urllib.request.urlopen(f"https://cloud.iexapis.com/stable/stock/{stock}/quote?token={token}").read()
     results = json.loads(data)
     if results:
         quote = results['latestPrice']
