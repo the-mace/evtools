@@ -79,9 +79,9 @@ PAGE_LOAD_TIMEOUT = 240 * 1000
 AUTH_URL = 'https://login.solarcity.com/account/SignIn'
 
 # Where logging output from this tool goes. Modify path as needed
-LOGFILE = os.environ.get('LOGFILE')
-if not LOGFILE:
-    LOGFILE = os.path.expanduser("~/script/logs/solarcity.log")
+SOLAR_LOGFILE = os.environ.get('SOLAR_LOGFILE')
+if not SOLAR_LOGFILE:
+    SOLAR_LOGFILE = os.path.expanduser("~/script/logs/solarcity.log")
 
 # Data file containing all the saved state information
 DATA_FILE = "solarcity.json"
@@ -93,7 +93,7 @@ PICTURES_PATH = "images/solar"
 DEF_FRMT = "%(asctime)s : %(levelname)-8s : %(funcName)-25s:%(lineno)-4s: %(message)s"
 loglevel = logging.DEBUG
 log = logging.getLogger("SolarCity")
-loghandler = RotatingFileHandler(LOGFILE, maxBytes=5 * 1024 * 1024, backupCount=8)
+loghandler = RotatingFileHandler(SOLAR_LOGFILE, maxBytes=5 * 1024 * 1024, backupCount=8)
 loghandler.setFormatter(logging.Formatter(DEF_FRMT))
 log.addHandler(loghandler)
 log.setLevel(loglevel)
@@ -570,21 +570,6 @@ def main():
         print("   Precipitation Chance: %d%%" % w["precip_probability"])
         # analyze_weather(data)
 
-    if args.pvoutput is not None:
-        if int(args.pvoutput) == 0:
-            print("Uploading historical data to pvoutput.org")
-            for d in data["data"]:
-                print("   Processing date %s" % d)
-                try:
-                    upload_to_pvoutput(data, d)
-                except:
-                    print("      problem with date %s" % d)
-                print("      Sleeping")
-                # You'll need longer sleeps if you didnt donate
-                time.sleep(15)
-        else:
-            upload_to_pvoutput(data, args.pvoutput)
-
     if args.daily:
         log.debug("Check for daily update")
         current_day = time.strftime("%Y%m%d")
@@ -603,6 +588,21 @@ def main():
             if args.pvoutput is not None:
                 # Now upload to pvoutput
                 upload_to_pvoutput(data, current_day)
+
+    elif args.pvoutput is not None:
+        if int(args.pvoutput) == 0:
+            print("Uploading historical data to pvoutput.org")
+            for d in data["data"]:
+                print("   Processing date %s" % d)
+                try:
+                    upload_to_pvoutput(data, d)
+                except:
+                    print("      problem with date %s" % d)
+                print("      Sleeping")
+                # You'll need longer sleeps if you didnt donate
+                time.sleep(15)
+        else:
+            upload_to_pvoutput(data, args.pvoutput)
 
     if args.report:
         # Send/Run weekly solarcity summary report
