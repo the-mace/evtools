@@ -79,7 +79,9 @@ PAGE_LOAD_TIMEOUT = 240 * 1000
 AUTH_URL = 'https://login.solarcity.com/account/SignIn'
 
 # Where logging output from this tool goes. Modify path as needed
-LOGFILE = os.path.expanduser("~/script/logs/solarcity.log")
+SOLAR_LOGFILE = os.environ.get('SOLAR_LOGFILE')
+if not SOLAR_LOGFILE:
+    SOLAR_LOGFILE = os.path.expanduser("~/script/logs/solarcity.log")
 
 # Data file containing all the saved state information
 DATA_FILE = "solarcity.json"
@@ -91,13 +93,15 @@ PICTURES_PATH = "images/solar"
 DEF_FRMT = "%(asctime)s : %(levelname)-8s : %(funcName)-25s:%(lineno)-4s: %(message)s"
 loglevel = logging.DEBUG
 log = logging.getLogger("SolarCity")
-loghandler = RotatingFileHandler(LOGFILE, maxBytes=5 * 1024 * 1024, backupCount=8)
+loghandler = RotatingFileHandler(SOLAR_LOGFILE, maxBytes=5 * 1024 * 1024, backupCount=8)
 loghandler.setFormatter(logging.Formatter(DEF_FRMT))
 log.addHandler(loghandler)
 log.setLevel(loglevel)
 
 # Get the collection of pictures
-SOLAR_IMAGES = [os.path.join(PICTURES_PATH, f) for f in os.listdir(PICTURES_PATH) if not f.startswith('.')]
+SOLAR_IMAGES = []
+if os.path.exists(PICTURES_PATH):
+    SOLAR_IMAGES = [os.path.join(PICTURES_PATH, f) for f in os.listdir(PICTURES_PATH) if not f.startswith('.')]
 
 # Set to true to disable tweets/data file updates
 DEBUG_MODE = False
@@ -199,6 +203,11 @@ def get_current_day_data():
     return daylight_hours, cloud_cover, production
 
 
+def solar_image():
+    if SOLAR_IMAGES:
+        return random.choice(SOLAR_IMAGES)
+
+
 def tweet_production(daylight_hours, cloud_cover, production, special):
     if special == "high":
         extra = "A new high record :) "
@@ -220,7 +229,7 @@ def tweet_production(daylight_hours, cloud_cover, production, special):
         print("Would tweet:\n%s" % message)
         log.debug("DEBUG mode, not tweeting: %s", message)
     else:
-        media = random.choice(SOLAR_IMAGES)
+        media = solar_image()
         log.debug("Using media: %s", media)
         tweet_string(message=message, log=log, media=media)
 
@@ -247,7 +256,7 @@ def tweet_month(data):
         print("Would tweet:\n%s" % message)
         log.debug("DEBUG mode, not tweeting: %s", message)
     else:
-        tweet_string(message=message, log=log, media=random.choice(SOLAR_IMAGES))
+        tweet_string(message=message, log=log, media=solar_image())
 
 
 def tweet_year(data):
@@ -443,7 +452,7 @@ def solarcity_report(data, no_email=False, no_tweet=False):
         if DEBUG_MODE:
             print("Would Tweet string:\n%s" % tweet_message)
         else:
-            tweet_string(message=tweet_message, log=log, media=random.choice(SOLAR_IMAGES))
+            tweet_string(message=tweet_message, log=log, media=solar_image())
 
 
 def upload_to_pvoutput(data, day):
@@ -578,7 +587,26 @@ def main():
         print("   Precipitation Chance: %d%%" % w["precip_probability"])
         # analyze_weather(data)
 
-    if args.pvoutput is not None:
+    if args.daily:
+        log.debug("Check for daily update")
+        current_day = time.strftime("%Y%m%d")
+        if data['config']['lastdailytweet'] != current_day or DEBUG_MODE or args.force:
+            daylight_hours, cloud_cover, production = get_current_day_data()
+            data['data'][current_day] = {'daylight': daylight_hours, 'cloud': cloud_cover, 'production': production}
+            special = None
+            if production_max is None or production > data['data'][production_max]['production']:
+                special = "high"
+            elif production_min is None or production < data['data'][production_min]['production']:
+                special = "low"
+            if not args.no_tweet:
+                tweet_production(daylight_hours, cloud_cover, production, special)
+                data['config']['lastdailytweet'] = current_day
+            data_changed = True
+            if args.pvoutput is not None:
+                # Now upload to pvoutput
+                upload_to_pvoutput(data, current_day)
+
+    elif args.pvoutput is not None:
         if int(args.pvoutput) == 0:
             print("Uploading historical data to pvoutput.org")
             for d in data["data"]:
@@ -592,23 +620,6 @@ def main():
                 time.sleep(15)
         else:
             upload_to_pvoutput(data, args.pvoutput)
-
-    if args.daily:
-        log.debug("Check for daily update")
-        current_day = time.strftime("%Y%m%d")
-        if data['config']['lastdailytweet'] != current_day or DEBUG_MODE or args.force:
-            daylight_hours, cloud_cover, production = get_current_day_data()
-            data['data'][current_day] = {'daylight': daylight_hours, 'cloud': cloud_cover, 'production': production}
-            special = None
-            if production_max is None or production > data['data'][production_max]['production']:
-                special = "high"
-            elif production_min is None or production < data['data'][production_min]['production']:
-                special = "low"
-            tweet_production(daylight_hours, cloud_cover, production, special)
-            data['config']['lastdailytweet'] = current_day
-            data_changed = True
-            # Now upload to pvoutput
-            upload_to_pvoutput(data, current_day)
 
     if args.report:
         # Send/Run weekly solarcity summary report
