@@ -225,6 +225,19 @@ def tweet_production(daylight_hours, cloud_cover, production, special):
         tweet_string(message=message, log=log, media=media)
 
 
+def tweet_down():
+    daysdown = (datetime.datetime.now() - datetime.datetime(2019, 8, 27)).days
+    message = "@SolarCity system (17.6kW) was taken offline by @Tesla on 8/29/19, %d days ago. " \
+              "No repair possible for months." % daysdown
+    if DEBUG_MODE:
+        print("Would tweet:\n%s" % message)
+        log.debug("DEBUG mode, not tweeting: %s", message)
+    else:
+        media = random.choice(SOLAR_IMAGES)
+        log.debug("Using media: %s", media)
+        tweet_string(message=message, log=log, media=media)
+
+
 def tweet_month(data):
     generated_this_week, generated_this_month, generated_this_year, total_generation = compute_generation_data(data)
 
@@ -493,6 +506,7 @@ def main():
     parser.add_argument('--yearly', help='Report on yearly generation', required=False, action='store_true')
     parser.add_argument('--weather', help='Report weather for given date (YYYYMMDD)', required=False, type=str)
     parser.add_argument('--pvoutput', help="Send data for date (YYYYMMDD) to PVOutput.org", required=False, type=str)
+    parser.add_argument('--down', help="Tweet system down", required=False, action='store_true')
     args = parser.parse_args()
 
     # Make sure we only run one instance at a time
@@ -510,6 +524,9 @@ def main():
 
     data = load_historical_data(data)
     production_max, production_min, total_generation = analyze_data(data)
+
+    if args.down:
+        tweet_down()
 
     if args.monthly:
         # First check if its last day of the month
