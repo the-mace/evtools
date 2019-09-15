@@ -3,7 +3,7 @@
 """
 solarcity.py
 
-Copyright (c) 2015, 2016 Rob Mason
+Copyright (c) 2019 Rob Mason
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
@@ -23,21 +23,11 @@ Blog: http://teslaliving.net
 
 Description:
 
-SolarCity doesn't offer an API to access your generation data, so here we're using Selenium to get data the data.
-
-You need to download and install Selenium from here:
-    pip install selenium
-
-You also need Mozilla Marionette
-    https://developer.mozilla.org/en-US/docs/Mozilla/QA/Marionette/WebDriver
-    Download and copy binary to /usr/local/bin and make sure its executable
+SolarCity doesn't offer an API to access your generation data, but there's a site you can hit
 
 Other requirements:
     https://github.com/the-mace/evtools
-
-Supply your SolarCity login information via environment variables:
-    SOLARCITY_USER
-    SOLARCITY_PASSWORD
+    https://pypi.org/project/beautifulsoup4/
 
 Examples:
     ./solarcity.py --daily  - Provide end of day update on generation
@@ -63,20 +53,19 @@ from logging.handlers import RotatingFileHandler
 import traceback
 from tl_tweets import tweet_string, tweet_price
 from tl_email import email
-from selenium import webdriver
 import csv
 import json
 import datetime
+from dateutil import parser
 from dateutil.relativedelta import relativedelta
 import calendar
 import random
 from tl_weather import get_daytime_weather_data
+import requests
+from bs4 import BeautifulSoup
 
 # Wait time for page loads
 PAGE_LOAD_TIMEOUT = 240 * 1000
-
-# Main URL to SolarCity
-AUTH_URL = 'https://login.solarcity.com/account/SignIn'
 
 # Where logging output from this tool goes. Modify path as needed
 SOLAR_LOGFILE = os.environ.get('SOLAR_LOGFILE')
@@ -106,76 +95,46 @@ if os.path.exists(PICTURES_PATH):
 # Set to true to disable tweets/data file updates
 DEBUG_MODE = False
 
-# Get SolarCity.com login information from environment
+# Get SolarCity information from environment
 if not 'SOLARCITY_USER' in os.environ:
     raise Exception("SOLARCITY_USER missing")
 else:
     SOLARCITY_USER = os.environ['SOLARCITY_USER']
 
-if not 'SOLARCITY_PASSWORD' in os.environ:
-    raise Exception("SOLARCITY_PASSWORD missing")
+# Get your SITE_ID by logging into https://solarguard.solarcity.com/Kiosk/SolarGuard.aspx and
+# extract the SITE_ID from the URL once logged in
+if not 'SOLARCITY_SITE_ID' in os.environ:
+    raise Exception("SOLARCITY_SITE_ID missing")
 else:
-    SOLARCITY_PASSWORD = os.environ['SOLARCITY_PASSWORD']
+    SOLARCITY_SITE_ID = os.environ['SOLARCITY_SITE_ID']
+
+# Main URL to SolarCity
+SOLARCITY_URL = 'https://solarguard.solarcity.com/Kiosk/SolarGuard.aspx' \
+                '?ID=&JID=%s' \
+                '&GroupID=0' \
+                '&AutoDemo=1' \
+                '&Timeout=480' \
+                '&Share=0' \
+                '&RangeType=Day' \
+                '&ChartMode=Stack' \
+                '&Consumption=1' \
+                '&Min=30' \
+                '&ExportLifetime=0' % SOLARCITY_SITE_ID
 
 
-def get_current_day_data():
-    driver = webdriver.Chrome()
-    driver.implicitly_wait(30)
+def get_day_data(day=None):
+    append = ''
+    if day:
+        append = '&ChartDate=%d_%d_%d' % (day.month, day.day, day.year)
+    r = requests.get(SOLARCITY_URL + append)
+    soup = BeautifulSoup(r.text, features="html.parser")
 
-    try:
-        driver.get('https://login.solarcity.com/logout')
-    except:
-        pass
-
-    time.sleep(10)
-    driver.get(AUTH_URL)
-    time.sleep(10)
-    driver.find_element_by_id("username").send_keys(SOLARCITY_USER)
-    password = driver.find_element_by_id("password")
-    password.send_keys(SOLARCITY_PASSWORD)
-    password.submit()
-    time.sleep(10)
-    driver.find_element_by_xpath("//div[@id='HomeCtrlView']/div[2]/div/div/a").click()
-
-    production = 0
     daylight_hours = 0
     cloud_cover = 0
-    loops = 1
 
-    while loops > 0:
-        time.sleep(10)
+    production = float(soup.find(id='ctl00_cphMain_lbProdTotalByChart').text)
 
-        data = driver.find_element_by_css_selector("div.consumption-production-panel").text
-        data += driver.find_element_by_css_selector("div.details-panel.pure-g").text
-        log.debug("raw data: %r", data)
-
-        fields = data.split("\n")
-
-        for f in fields:
-            if f.find("hrs") != -1:
-                try:
-                    daylight_hours = float(f.split()[0])
-                    continue
-                except:
-                    pass
-            if f.find(" %") != -1:
-                try:
-                    cloud_cover = int(f.split()[0])
-                    continue
-                except:
-                    pass
-            if f.find("kWh") != -1:
-                try:
-                    production = float(f.split()[0])
-                    continue
-                except:
-                    pass
-
-        if production != 0:
-            break
-        loops -= 1
-
-    if float(production) == 0 and cloud_cover == 0 and daylight_hours == 0:
+    if not day and production == 0 and cloud_cover == 0 and daylight_hours == 0:
         raise Exception("Problem getting current production level: %.1f, %d, %.1f" % (production,
                                                                                       cloud_cover, daylight_hours))
 
@@ -184,21 +143,13 @@ def get_current_day_data():
         SolarCity has had outages where they cant provide the cloud cover/weather information.
         If the weather data appears empty here, we'll go get it from another source
         """
-        w = get_daytime_weather_data(log, time.time())
+        if day:
+            ts = datetime.datetime.combine(day, datetime.datetime.max.time()).strftime("%s")
+        else:
+            ts = time.time()
+        w = get_daytime_weather_data(log, ts)
         cloud_cover = w["cloud_cover"]
         daylight_hours = w["daylight"]
-
-    try:
-        driver.find_element_by_xpath("//ul[@id='mysc-nav']/li[18]/a/span").click()
-    except:
-        pass
-    time.sleep(2)
-
-    # If we get here everything worked, shut down the browser
-    driver.quit()
-
-    if os.path.exists("geckodriver.log"):
-        os.remove("geckodriver.log")
 
     return daylight_hours, cloud_cover, production
 
@@ -311,6 +262,30 @@ def load_historical_data(data):
     return data
 
 
+def populate_missing_data(data):
+    today = datetime.datetime.now().date()
+    first = None
+    last = None
+    for d in data['data']:
+        t = parser.parse(d).date()
+        if not first:
+            first = t
+        last = t
+    while last < today - datetime.timedelta(days=1):
+        last = last + datetime.timedelta(days=1)
+        try:
+            daylight_hours, cloud_cover, production = get_day_data(last)
+        except:
+            print("Error fetching %s" % last)
+            continue
+        print("populating missing: %s: %s %s %s" % (last, daylight_hours, cloud_cover, production))
+        current_day = last.strftime("%Y%m%d")
+        data['data'][current_day] = {'daylight': daylight_hours, 'cloud': cloud_cover, 'production': production}
+        data_changed = True
+        time.sleep(10)
+    return data_changed
+
+
 def analyze_data(data):
     production_max = 0
     production_max_day = None
@@ -383,6 +358,7 @@ def save_data(data):
         os.rename(DATA_FILE + ".tmp", DATA_FILE)
     else:
         log.debug("   Skipped saving due to debug mode")
+        print(data)
 
 
 def show_with_units(generation):
@@ -516,6 +492,7 @@ def main():
     parser.add_argument('--weather', help='Report weather for given date (YYYYMMDD)', required=False, type=str)
     parser.add_argument('--pvoutput', help="Send data for date (YYYYMMDD) to PVOutput.org", required=False, type=str)
     parser.add_argument('--down', help="Tweet system down", required=False, action='store_true')
+    parser.add_argument('--missing', help="Fill in missing data", required=False, action='store_true')
     args = parser.parse_args()
 
     # Make sure we only run one instance at a time
@@ -533,6 +510,9 @@ def main():
 
     data = load_historical_data(data)
     production_max, production_min, total_generation = analyze_data(data)
+
+    if args.missing:
+        data_changed = populate_missing_data(data)
 
     if args.down:
         tweet_down()
@@ -591,7 +571,7 @@ def main():
         log.debug("Check for daily update")
         current_day = time.strftime("%Y%m%d")
         if data['config']['lastdailytweet'] != current_day or DEBUG_MODE or args.force:
-            daylight_hours, cloud_cover, production = get_current_day_data()
+            daylight_hours, cloud_cover, production = get_day_data()
             data['data'][current_day] = {'daylight': daylight_hours, 'cloud': cloud_cover, 'production': production}
             special = None
             if production_max is None or production > data['data'][production_max]['production']:
@@ -683,6 +663,7 @@ def main():
         print('<li><i>Note 2: Cloud/Daylight data <a href="http://forecast.io">Powered by Forecast</a> when ' \
               'SolarCity data missing.</i></li>')
         print('<li><i>Note 3: System was degraded from 20170530 to 20170726. Up to 30 panels offline.</i></li>')
+        print('<li><i>Note 4: System was degraded from 20190828 to 201909. All panels offline.</i></li>')
         print('</ul>')
 
     if data_changed:
