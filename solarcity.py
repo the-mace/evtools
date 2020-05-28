@@ -101,6 +101,12 @@ if not 'SOLARCITY_USER' in os.environ:
 else:
     SOLARCITY_USER = os.environ['SOLARCITY_USER']
 
+# Get SolarCity referral information from environment
+if not 'SOLARCITY_REFERRAL' in os.environ:
+    SOLARCITY_REFERRAL = ''
+else:
+    SOLARCITY_REFERRAL = os.environ['SOLARCITY_REFERRAL']
+
 # Get your SITE_ID by logging into https://solarguard.solarcity.com/Kiosk/SolarGuard.aspx and
 # extract the SITE_ID from the URL once logged in
 if not 'SOLARCITY_SITE_ID' in os.environ:
@@ -169,12 +175,12 @@ def tweet_production(daylight_hours, cloud_cover, production, special):
 
     if daylight_hours > 0.0:
         message = "Todays @SolarCity Production: %s with %.1f hrs of daylight and %d%% cloud cover. %s" \
-                  "#gosolar #bot" % \
-                  (show_with_units(production), daylight_hours, cloud_cover, extra)
+                  "#gosolar #bot %s" % \
+                  (show_with_units(production), daylight_hours, cloud_cover, extra, SOLARCITY_REFERRAL)
     else:
         message = "Todays @SolarCity Production: %s (daylight/cloud cover not reported) %s" \
-                  "#gosolar #bot" % \
-                  (show_with_units(production), extra)
+                  "#gosolar #bot %s" % \
+                  (show_with_units(production), extra, SOLARCITY_REFERRAL)
 
     if DEBUG_MODE:
         print("Would tweet:\n%s" % message)
@@ -201,8 +207,8 @@ def tweet_down():
 def tweet_month(data):
     generated_this_week, generated_this_month, generated_this_year, total_generation = compute_generation_data(data)
 
-    message = "This months @SolarCity Production was %s. %s generated in the last 365 days. #gosolar #bot" % \
-              (show_with_units(generated_this_month), show_with_units(generated_this_year))
+    message = "This months @SolarCity Production was %s. %s generated in the last 365 days. #gosolar #bot %s" % \
+              (show_with_units(generated_this_month), show_with_units(generated_this_year), SOLARCITY_REFERRAL)
     if DEBUG_MODE:
         print("Would tweet:\n%s" % message)
         log.debug("DEBUG mode, not tweeting: %s", message)
@@ -213,8 +219,8 @@ def tweet_month(data):
 def tweet_year(data):
     generated_this_week, generated_this_month, generated_this_year, total_generation = compute_generation_data(data)
 
-    message = "This years @SolarCity Production was %s! %s generated since install :) #gosolar #bot" % \
-              (show_with_units(generated_this_year), show_with_units(total_generation))
+    message = "This years @SolarCity Production was %s! %s generated since install :) #gosolar #bot %s" % \
+              (show_with_units(generated_this_year), show_with_units(total_generation), SOLARCITY_REFERRAL)
     if DEBUG_MODE:
         print("Would tweet:\n%s" % message)
         log.debug("DEBUG mode, not tweeting: %s", message)
@@ -424,7 +430,8 @@ def solarcity_report(data, no_email=False, no_tweet=False):
 
     if not no_tweet:
         tweet_message = "%s generated last week with @SolarCity. " % show_with_units(generated_this_week)
-        tweet_message += "%s generated in the last 30 days. #GoSolar #bot" % show_with_units(generated_this_month)
+        tweet_message += "%s generated in the last 30 days. #GoSolar #bot %s" % \
+                         (show_with_units(generated_this_month), SOLARCITY_REFERRAL)
         if DEBUG_MODE:
             print("Would Tweet string:\n%s" % tweet_message)
         else:
