@@ -30,7 +30,9 @@ Supply your myTesla login information via environment variables:
     TESLA_PASSWORD
 
 Uses third party library:
+    pip install requests_oauthlib
     https://github.com/gglockner/teslajson
+    Note: Use "requests" branch due to recent API changes
 
 See also the unofficial Tesla API docs:
     http://docs.timdorr.apiary.io/#
@@ -133,9 +135,15 @@ def mail_exception(e):
 
 def establish_connection(token=None):
     logT.debug("Connecting to Tesla")
-    c = teslajson.Connection(email=TESLA_EMAIL, password=TESLA_PASSWORD, access_token=token)
-    logT.debug("   connected. Token: %s", c.access_token)
+    c = teslajson.Connection(email=TESLA_EMAIL, password=TESLA_PASSWORD)
+    # TODO: He removed support for access_token, checking on future support
+    # c = teslajson.Connection(email=TESLA_EMAIL, password=TESLA_PASSWORD, access_token=token)
+    logT.debug("   connected. Token: %s", get_access_token(c))
     return c
+
+
+def get_access_token(c):
+    return c.sso_session.token['access_token']
 
 
 def tweet_major_mileage(miles, get_tweet=False):
@@ -426,7 +434,8 @@ def check_current_firmware_version(c, data):
     v = None
     changed = False
     try:
-        v = c.vehicles[0].data_request("vehicle_state")["car_version"].split(" ")[0]
+        v = c.vehicles[0]
+        v.data_request("vehicle_state")["car_version"].split(" ")[0]
         logT.debug("Found firmware version %s", v)
     except:
         logT.warning("Problems getting firmware version")
@@ -508,9 +517,9 @@ def main():
         logT.debug("Problems establishing connection")
         c = establish_connection()
 
-    if c.access_token:
-        if not 'token' in data or data['token'] != c.access_token:
-            data['token'] = c.access_token
+    if get_access_token(c):
+        if not 'token' in data or data['token'] != get_access_token(c):
+            data['token'] = get_access_token(c)
             data_changed = True
 
     if args.status:
