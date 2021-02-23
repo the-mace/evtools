@@ -143,7 +143,7 @@ def establish_connection(token=None):
 
 
 def get_access_token(c):
-    return c.sso_session.token['access_token']
+    return None
 
 
 def tweet_major_mileage(miles, get_tweet=False):
@@ -295,7 +295,7 @@ def get_current_state(c, car, include_temps=False):
     s = {}
     for v in c.vehicles:
         if v["display_name"] == car:
-            if v.state == 'asleep':
+            if v['state'] == 'asleep':
                 continue
             d = v.data_request("vehicle_state")
             s["odometer"] = d["odometer"]
@@ -598,19 +598,19 @@ def main():
                     logT.exception("   Problem getting current state, sleeping and trying again")
                     time.sleep(30)
         if s is None:
-            logT.error("   Could not fetch current state")
-            raise Exception("Couldnt fetch Tesla state")
-        logT.debug("   got current state")
-        t = datetime.date.today()
-        ts = t.strftime("%Y%m%d")
-        hour = datetime.datetime.now().hour
-        if hour < 12:
-            ampm = "am"
+            logT.warning("   Could not fetch current state")
         else:
-            ampm = "pm"
-        data["daily_state_%s" % ampm][ts] = s
-        logT.debug("   added to database")
-        data_changed = True
+            logT.debug("   got current state")
+            t = datetime.date.today()
+            ts = t.strftime("%Y%m%d")
+            hour = datetime.datetime.now().hour
+            if hour < 12:
+                ampm = "am"
+            else:
+                ampm = "pm"
+            data["daily_state_%s" % ampm][ts] = s
+            logT.debug("   added to database")
+            data_changed = True
 
     elif args.day:
         # Show Tesla state information from a given day
@@ -648,15 +648,19 @@ def main():
     elif args.pluggedin:
         # Check if the Tesla is plugged in and alert if not
         logT.debug("Checking if Tesla is plugged in")
-        if not is_plugged_in(c, CAR_NAME):
-            s = get_current_state(c, CAR_NAME, include_temps=False)
-            message = "Your car is not plugged in.\n\n"
-            message += "Current battery level is %d%%. (%d estimated miles)" % (s["soc"], int(s["estimated_range"]))
-            message += "\n\nRegards,\nRob"
-            email(email=TESLA_EMAIL, message=message, subject="Your Tesla isn't plugged in")
-            logT.debug("   Not plugged in. Emailed notice.")
-        else:
-            logT.debug("   Its plugged in.")
+        try:
+            plugged_in = is_plugged_in(c, CAR_NAME)
+            if not plugged_in:
+                s = get_current_state(c, CAR_NAME, include_temps=False)
+                message = "Your car is not plugged in.\n\n"
+                message += "Current battery level is %d%%. (%d estimated miles)" % (s["soc"], int(s["estimated_range"]))
+                message += "\n\nRegards,\nRob"
+                email(email=TESLA_EMAIL, message=message, subject="Your Tesla isn't plugged in")
+                logT.debug("   Not plugged in. Emailed notice.")
+            else:
+                logT.debug("   Its plugged in.")
+        except:
+            logT.warning("Problem checking plugged in state")
 
     elif args.mailtest:
         # Test emailing
