@@ -53,6 +53,7 @@ from logging.handlers import RotatingFileHandler
 import traceback
 from tl_tweets import tweet_string, tweet_price
 from tl_email import email
+from selenium import webdriver
 import csv
 import json
 import datetime
@@ -115,7 +116,9 @@ else:
     SOLARCITY_SITE_ID = os.environ['SOLARCITY_SITE_ID']
 
 # Main URL to SolarCity
-SOLARCITY_URL = 'https://solarguard.solarcity.com/Kiosk/SolarGuard.aspx' \
+SOLARCITY_URL = 'https://mysolarcity.com/Share/%s#/monitoring/historical/day' % SOLARCITY_SITE_ID
+
+SOLARGUARD_URL = 'https://solarguard.solarcity.com/Kiosk/SolarGuard.aspx' \
                 '?ID=&JID=%s' \
                 '&GroupID=0' \
                 '&AutoDemo=1' \
@@ -131,8 +134,41 @@ SOLARCITY_URL = 'https://solarguard.solarcity.com/Kiosk/SolarGuard.aspx' \
 def get_day_data(day=None):
     append = ''
     if day:
+        append = '?date=%d-%02d-%02d' % (day.year, day.month, day.day)
+
+    driver = webdriver.Chrome()
+    driver.get(SOLARCITY_URL)
+    time.sleep(10)
+    driver.get(SOLARCITY_URL + append)
+    time.sleep(10)
+    data = driver.find_element_by_css_selector("div.consumption-production-panel").text
+    if data and len(data.split()) > 0:
+        production = float(data.split()[0])
+    else:
+        production = 0
+
+    if day:
+        ts = datetime.datetime.combine(day, datetime.datetime.max.time()).strftime("%s")
+    else:
+        ts = time.time()
+    w = get_daytime_weather_data(log, ts)
+    cloud_cover = w["cloud_cover"]
+    daylight_hours = w["daylight"]
+
+    # If we get here everything worked, shut down the browser
+    driver.quit()
+
+    if os.path.exists("geckodriver.log"):
+        os.remove("geckodriver.log")
+
+    return daylight_hours, cloud_cover, production
+
+
+def get_solarguard_day_data(day=None):
+    append = ''
+    if day:
         append = '&ChartDate=%d_%d_%d' % (day.month, day.day, day.year)
-    r = requests.get(SOLARCITY_URL + append)
+    r = requests.get(SOLARGUARD_URL + append)
     soup = BeautifulSoup(r.text, features="html.parser")
 
     daylight_hours = 0
@@ -272,6 +308,7 @@ def populate_missing_data(data):
     today = datetime.datetime.now().date()
     first = None
     last = None
+    data_changed = False
     for d in data['data']:
         t = parser.parse(d).date()
         if not first:
