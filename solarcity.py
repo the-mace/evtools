@@ -174,11 +174,11 @@ def tweet_production(daylight_hours, cloud_cover, production, special):
         extra = ""
 
     if daylight_hours > 0.0:
-        message = "Todays @SolarCity Production: %s with %.1f hrs of daylight and %d%% cloud cover. %s" \
+        message = "Todays @Tesla Solar Production: %s with %.1f hrs of daylight and %d%% cloud cover. %s" \
                   "#gosolar #bot %s" % \
                   (show_with_units(production), daylight_hours, cloud_cover, extra, SOLARCITY_REFERRAL)
     else:
-        message = "Todays @SolarCity Production: %s (daylight/cloud cover not reported) %s" \
+        message = "Todays @Tesla Solar Production: %s (daylight/cloud cover not reported) %s" \
                   "#gosolar #bot %s" % \
                   (show_with_units(production), extra, SOLARCITY_REFERRAL)
 
@@ -193,7 +193,7 @@ def tweet_production(daylight_hours, cloud_cover, production, special):
 
 def tweet_down():
     daysdown = (datetime.datetime.now() - datetime.datetime(2019, 8, 27)).days
-    message = "@SolarCity system (17.6kW) was taken offline by @Tesla on 8/29/19, %d days ago. " \
+    message = "@Tesla Solar system (17.6kW) was taken offline by @Tesla on 8/29/19, %d days ago. " \
               "No repair possible for months." % daysdown
     if DEBUG_MODE:
         print("Would tweet:\n%s" % message)
@@ -207,7 +207,7 @@ def tweet_down():
 def tweet_month(data):
     generated_this_week, generated_this_month, generated_this_year, total_generation = compute_generation_data(data)
 
-    message = "This months @SolarCity Production was %s. %s generated in the last 365 days. #gosolar #bot %s" % \
+    message = "This months @Tesla Solar Production was %s. %s generated in the last 365 days. #gosolar #bot %s" % \
               (show_with_units(generated_this_month), show_with_units(generated_this_year), SOLARCITY_REFERRAL)
     if DEBUG_MODE:
         print("Would tweet:\n%s" % message)
@@ -219,7 +219,7 @@ def tweet_month(data):
 def tweet_year(data):
     generated_this_week, generated_this_month, generated_this_year, total_generation = compute_generation_data(data)
 
-    message = "This years @SolarCity Production was %s! %s generated since install :) #gosolar #bot %s" % \
+    message = "This years @Tesla Solar Production was %s! %s generated since install :) #gosolar #bot %s" % \
               (show_with_units(generated_this_year), show_with_units(total_generation), SOLARCITY_REFERRAL)
     if DEBUG_MODE:
         print("Would tweet:\n%s" % message)
@@ -429,7 +429,7 @@ def solarcity_report(data, no_email=False, no_tweet=False):
         email(email=SOLARCITY_USER, message=message, subject="Weekly SolarCity Report")
 
     if not no_tweet:
-        tweet_message = "%s generated last week with @SolarCity. " % show_with_units(generated_this_week)
+        tweet_message = "%s generated last week with @Tesla Solar. " % show_with_units(generated_this_week)
         tweet_message += "%s generated in the last 30 days. #GoSolar #bot %s" % \
                          (show_with_units(generated_this_month), SOLARCITY_REFERRAL)
         if DEBUG_MODE:
@@ -490,6 +490,7 @@ def main():
     parser = argparse.ArgumentParser(description='SolarCity Reporting')
     parser.add_argument('--no_email', help='Dont send emails', required=False, action='store_true')
     parser.add_argument('--force', help='Force update', required=False, action='store_true')
+    parser.add_argument('--details', help='Output detailed blog output', required=False, action='store_true')
     parser.add_argument('--no_tweet', help='Dont post tweets', required=False, action='store_true')
     parser.add_argument('--report', help='Generate report', required=False, action='store_true')
     parser.add_argument('--blog', help='Generate html report page', required=False, action='store_true')
@@ -503,12 +504,13 @@ def main():
     args = parser.parse_args()
 
     # Make sure we only run one instance at a time
-    fp = open('/tmp/solarcity.lock', 'w')
-    try:
-        fcntl.flock(fp.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except:
-        log.debug("Sorry, someone else is running this tool right now. Please try again later")
-        return -1
+    if not args.blog:
+        fp = open('/tmp/solarcity.lock', 'w')
+        try:
+            fcntl.flock(fp.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except:
+            log.debug("Sorry, someone else is running this tool right now. Please try again later")
+            return -1
 
     log.debug("--- solarcity.py start ---")
 
@@ -597,6 +599,8 @@ def main():
         if int(args.pvoutput) == 0:
             print("Uploading historical data to pvoutput.org")
             for d in data["data"]:
+                if int(d) < 20190916:
+                    continue
                 print("   Processing date %s" % d)
                 try:
                     upload_to_pvoutput(data, d)
@@ -604,7 +608,7 @@ def main():
                     print("      problem with date %s" % d)
                 print("      Sleeping")
                 # You'll need longer sleeps if you didnt donate
-                time.sleep(15)
+                time.sleep(120)
         else:
             upload_to_pvoutput(data, args.pvoutput)
 
@@ -615,9 +619,9 @@ def main():
     if args.blog:
         # Export all entries found for posting to static page on blog: teslaliving.net/solarcity
         log.debug("Reporting on SolarCity generation for blog")
-        print('<a href="http://share.solarcity.com/teslaliving">@SolarCity</a> Solar Installation')
+        print('<a href="http://ts.la/rob6663">@Tesla Solar</a> Solar Installation')
         print('<h3>System Results</h3>')
-        print("<b>%s total power generated via @SolarCity as of %s</b>" % (show_with_units(total_generation),
+        print("<b>%s total power generated via @Tesla Solar as of %s</b>" % (show_with_units(total_generation),
                                                                     time.strftime("%Y%m%d")))
         print("%s day max on %s" % (show_with_units(data['data'][production_max]['production']), production_max))
         print("%s day min on %s" % (show_with_units(data['data'][production_min]['production']), production_min))
@@ -633,42 +637,43 @@ def main():
         print("Inverter info: ")
         print("* <a href='http://www.solaredge.com/sites/default/files/se-single-phase-us-inverter-datasheet.pdf'>SolarEdge SE6000A</a>")
         print(" ")
-        print('Sign up for <a href="http://share.solarcity.com/teslaliving">SolarCity</a> and save on electric!')
+        print('Sign up for <a href="http://ts.la/rob6663">Tesla Solar</a> and save on electric!')
 
         print('<h3>Chart via <a href="http://pvoutput.org/list.jsp?id=48753&sid=44393">PVOutput</a></h3>[hoops name="pvoutput"]')
-        print('<h3>Daily Log:</h3>')
-        print("%s%s%s&nbsp;&nbsp;%s&nbsp;&nbsp;%s" % ("Date", "&nbsp;" * 11, "Production", "Daylight", "Cloud Cover"))
-        d = data['data']
-        for e in sorted(d, reverse=True):
-            production = d[e]['production']
-            if 'daylight' in d[e] and d[e]['daylight'] > 0:
-                daylight = d[e]['daylight']
-                if 'cloud' in d[e]:
-                    cloud = d[e]['cloud']
+        if args.details:
+            print('<h3>Daily Log:</h3>')
+            print("%s%s%s&nbsp;&nbsp;%s&nbsp;&nbsp;%s" % ("Date", "&nbsp;" * 11, "Production", "Daylight", "Cloud Cover"))
+            d = data['data']
+            for e in sorted(d, reverse=True):
+                production = d[e]['production']
+                if 'daylight' in d[e] and d[e]['daylight'] > 0:
+                    daylight = d[e]['daylight']
+                    if 'cloud' in d[e]:
+                        cloud = d[e]['cloud']
+                    else:
+                        cloud = 0
                 else:
-                    cloud = 0
-            else:
-                w = get_daytime_weather_data(log, time.mktime(time.strptime("%s2100" % e, "%Y%m%d%H%M")))
-                d[e]['daylight'] = w['daylight']
-                daylight = w['daylight']
-                d[e]['weather_api'] = True
-                d[e]['cloud'] = w['cloud_cover']
-                cloud = w['cloud_cover']
-                d[e]['weather_api'] = True
-                data_changed = True
+                    w = get_daytime_weather_data(log, time.mktime(time.strptime("%s2100" % e, "%Y%m%d%H%M")))
+                    d[e]['daylight'] = w['daylight']
+                    daylight = w['daylight']
+                    d[e]['weather_api'] = True
+                    d[e]['cloud'] = w['cloud_cover']
+                    cloud = w['cloud_cover']
+                    d[e]['weather_api'] = True
+                    data_changed = True
 
-            if production is not None and daylight is not None and cloud is not None:
-                print('%s' % e, '&nbsp;&nbsp;&nbsp;&nbsp;%s&nbsp;%.1f hrs&nbsp;%d%%' % \
-                                (show_with_units(production), daylight, cloud))
-            else:
-                print('%s' % e, '&nbsp;&nbsp;&nbsp;&nbsp;%s' % show_with_units(production))
+                if production is not None and daylight is not None and cloud is not None:
+                    print('%s' % e, '&nbsp;&nbsp;&nbsp;&nbsp;%s&nbsp;%.1f hrs&nbsp;%d%%' % \
+                                    (show_with_units(production), daylight, cloud))
+                else:
+                    print('%s' % e, '&nbsp;&nbsp;&nbsp;&nbsp;%s' % show_with_units(production))
 
-        print('\nSign up for <a href="http://share.solarcity.com/teslaliving">SolarCity</a> and save on electric!')
+            print('\nSign up for <a href="http://ts.la/rob6663">Tesla Solar</a> and save on electric!')
         print('\nFollow <a href="https://twitter.com/teslaliving">@TeslaLiving</a>.')
         print('\n<ul>')
         print('<li><i>Note 1: Detailed generation tracking started 20150612.</i></li>')
         print('<li><i>Note 2: Cloud/Daylight data <a href="http://forecast.io">Powered by Forecast</a> when ' \
-              'SolarCity data missing.</i></li>')
+              'Tesla Solar data missing.</i></li>')
         print('<li><i>Note 3: System was degraded from 20170530 to 20170726. Up to 30 panels offline.</i></li>')
         print('<li><i>Note 4: System was degraded from 20190828 to 201909. All panels offline.</i></li>')
         print('</ul>')
