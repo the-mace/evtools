@@ -54,6 +54,7 @@ import traceback
 from tl_tweets import tweet_string, tweet_price
 from tl_email import email
 from selenium import webdriver
+from selenium.webdriver.common.by import By
 import csv
 import json
 import datetime
@@ -141,7 +142,7 @@ def get_day_data(day=None):
     time.sleep(10)
     driver.get(SOLARCITY_URL + append)
     time.sleep(10)
-    data = driver.find_element_by_css_selector("div.consumption-production-panel").text
+    data = driver.find_element(By.CSS_SELECTOR, "div.consumption-production-panel").text
     if data and len(data.split()) > 0:
         production = float(data.split()[0])
     else:
@@ -316,15 +317,23 @@ def populate_missing_data(data):
         last = t
     while last < today - datetime.timedelta(days=1):
         last = last + datetime.timedelta(days=1)
+        current_day = last.strftime("%Y%m%d")
+        if current_day in data['data']:
+            log.debug("Skipping %s" % current_day)
+            continue
         try:
             daylight_hours, cloud_cover, production = get_day_data(last)
         except:
             print("Error fetching %s" % last)
             continue
-        print("populating missing: %s: %s %s %s" % (last, daylight_hours, cloud_cover, production))
-        current_day = last.strftime("%Y%m%d")
+        log_str = "populating missing: %s: daylight: %s cloud cover: %s production: %s" % \
+                  (last, daylight_hours, cloud_cover, production)
+        print(log_str)
+        log.debug(log_str)
         data['data'][current_day] = {'daylight': daylight_hours, 'cloud': cloud_cover, 'production': production}
         data_changed = True
+        save_data(data)
+        upload_to_pvoutput(data, current_day)
         time.sleep(10)
     return data_changed
 
@@ -636,7 +645,7 @@ def main():
         if int(args.pvoutput) == 0:
             print("Uploading historical data to pvoutput.org")
             for d in data["data"]:
-                if int(d) < 20190916:
+                if int(d) < 20150224:
                     continue
                 print("   Processing date %s" % d)
                 try:
@@ -644,10 +653,36 @@ def main():
                 except:
                     print("      problem with date %s" % d)
                 print("      Sleeping")
-                # You'll need longer sleeps if you didnt donate
+                # You'll need longer sleeps if you didnt donate, try 120
                 time.sleep(120)
         else:
-            upload_to_pvoutput(data, args.pvoutput)
+            today = datetime.datetime.now().date()
+            last = datetime.datetime.strptime(args.pvoutput, '%Y%m%d').date()
+            while True:
+                if last >= today - datetime.timedelta(days=1):
+                    break
+                current_day = last.strftime("%Y%m%d")
+                error = False
+                if current_day not in data["data"]:
+                    try:
+                        daylight_hours, cloud_cover, production = get_day_data(last)
+                    except:
+                        print("Error fetching %s" % last)
+                        log.debug("Error fetching %s" % last)
+                        error = True
+                    if not error:
+                        log_str = "populating missing: %s: daylight: %s cloud cover: %s production: %s" % \
+                                  (last, daylight_hours, cloud_cover, production)
+                        print(log_str)
+                        log.debug(log_str)
+                        data['data'][current_day] = {'daylight': daylight_hours, 'cloud': cloud_cover, 'production': production}
+                        data_changed = True
+                        save_data(data)
+                if not error and current_day in data["data"]:
+                    log.debug("would upload to pvoutput %s" % last)
+                    #upload_to_pvoutput(data, args.pvoutput)
+                    #time.sleep(10)
+                last = last + datetime.timedelta(days=1)
 
     if args.report:
         # Send/Run weekly solarcity summary report

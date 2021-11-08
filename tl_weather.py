@@ -129,8 +129,8 @@ def get_daytime_weather_data(log, weather_time=None, location=None):
     if "cloudCover" in weather["daily"]["data"][0]:
         cloudcover = weather["daily"]["data"][0]["cloudCover"] * 100
 
-    if log:
-        log.debug("cloudCoverage Day: %d%%, Cloud Coverage daytime average: %d%%", cloudcover, cc_average)
+    # if log:
+    #     log.debug("cloudCoverage Day: %d%%, Cloud Coverage daytime average: %d%%", cloudcover, cc_average)
 
     # Compute hours of daylight
     daylight = (weather["daily"]["data"][0]["sunsetTime"] - weather["daily"]["data"][0]["sunriseTime"]) / 60.0 / 60.0
