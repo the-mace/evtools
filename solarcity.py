@@ -55,6 +55,7 @@ from tl_tweets import tweet_string, tweet_price
 from tl_email import email
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
 import csv
 import json
 import datetime
@@ -137,7 +138,9 @@ def get_day_data(day=None):
     if day:
         append = '?date=%d-%02d-%02d' % (day.year, day.month, day.day)
 
-    driver = webdriver.Chrome()
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    driver = webdriver.Chrome(options=chrome_options)
     driver.get(SOLARCITY_URL)
     time.sleep(10)
     driver.get(SOLARCITY_URL + append)
