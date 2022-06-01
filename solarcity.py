@@ -270,6 +270,8 @@ def load_data():
         log.debug("Loading existing Solarcity database")
         data = json.load(open(DATA_FILE, "r"))
         log.debug("   %d entries loaded", len(data['data']))
+        if 'config' not in data:
+            data['config'] = {'lastdailytweet': '20010101'}
         # Manual insertion if needed
         #data['data']['20150620'] = {'production': 61.5, 'cloud': 68, 'daylight': 15.3}
 
