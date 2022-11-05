@@ -25,14 +25,9 @@ Description:
 
 Monitor your Tesla via the unofficial Tesla API
 
-Supply your myTesla login information via environment variables:
-    TESLA_EMAILcheck_current_firmware_version
-    TESLA_PASSWORD
-
 Uses third party library:
-    pip install requests_oauthlib
-    https://github.com/gglockner/teslajson
-    Note: Use "requests" branch due to recent API changes
+    https://github.com/tdorssers/TeslaPy
+    See the help there for the auth approach (under Alternative)
 
 See also the unofficial Tesla API docs:
     http://docs.timdorr.apiary.io/#
@@ -62,18 +57,30 @@ from tl_tweets import tweet_string
 from tl_email import email
 from tl_weather import get_daytime_weather_data
 import glob
-
 import sys
-basepath = os.path.dirname(sys.argv[0])
-sys.path.append(os.path.join(basepath, 'teslajson'))
-import teslajson
+import teslapy
+from pythonjsonlogger import jsonlogger
+import teslapy
+from selenium import webdriver
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 
 # Where logging output from this tool goes. Modify path as needed
 LOGFILE = os.path.expanduser(os.environ['TESLA_LOGFILE'])
 
+log = logging.getLogger(__name__)
+loghandler = RotatingFileHandler(LOGFILE, maxBytes=5 * 1024 * 1024, backupCount=8)
+formatter = jsonlogger.JsonFormatter()
+loghandler.setFormatter(formatter)
+log.addHandler(loghandler)
+log.setLevel(logging.INFO)
+
 # Data file containing all the saved state information
 DATA_FILE = os.path.expanduser(os.getenv('TESLA_DATA_FILE', "tesla.json"))
+
+# Data file containing all the saved state information
+SLEEP_LOG_FILE = os.path.expanduser(os.getenv('TESLA_SLEEP_LOG_FILE', "sleep_log.csv"))
 
 # Subdirectory where Tesla state dumps will be saved
 DUMP_DIR = "tesla_state_dumps"
@@ -85,14 +92,6 @@ CAR_NAME = os.environ['TESLA_CAR_NAME']
 PICTURES_PATH = os.path.expanduser(os.getenv('TESLA_PICTURES_PATH', "images/favorites"))
 VERSION_IMAGES = glob.glob('images/versions/*-watermark*')
 
-# Logging setup
-DEF_FRMT = "%(asctime)s : %(levelname)-8s : %(funcName)-25s:%(lineno)-4s: %(message)s"
-loglevel = logging.DEBUG
-logT = logging.getLogger("tesla")
-loghandler = RotatingFileHandler(LOGFILE, maxBytes=5 * 1024 * 1024, backupCount=8)
-loghandler.setFormatter(logging.Formatter(DEF_FRMT))
-logT.addHandler(loghandler)
-logT.setLevel(loglevel)
 
 # Get the collection of pictures
 def get_pics():
@@ -115,15 +114,12 @@ TESLA_PASSWORD = None
 if 'TESLA_EMAIL' in os.environ:
     TESLA_EMAIL = os.environ['TESLA_EMAIL']
 
-if 'TESLA_PASSWORD' in os.environ:
-    TESLA_PASSWORD = os.environ['TESLA_PASSWORD']
-
-if not TESLA_EMAIL or not TESLA_PASSWORD:
+if not TESLA_EMAIL:
     raise Exception("Missing Tesla login information")
 
 
 def mail_exception(e):
-    logT.exception("Exception encountered")
+    log.exception("Exception encountered")
     message = "There was a problem during tesla updates:\n\n"
     message += e
     message += "\nPlease investigate."
@@ -134,16 +130,23 @@ def mail_exception(e):
 
 
 def establish_connection(token=None):
-    logT.debug("Connecting to Tesla")
-    c = teslajson.Connection(email=TESLA_EMAIL, password=TESLA_PASSWORD)
-    # TODO: He removed support for access_token, checking on future support
-    # c = teslajson.Connection(email=TESLA_EMAIL, password=TESLA_PASSWORD, access_token=token)
-    logT.debug("   connected. Token: %s", get_access_token(c))
-    return c
+    log.debug("Connecting to Tesla")
+    tesla = teslapy.Tesla(TESLA_EMAIL, authenticator=custom_auth)
+    if not tesla.authorized:
+        log.info("Not authorized, attempting to re-authenticate")
+        log.info('Use browser to login. Page Not Found will be shown at success.')
+        log.info('Open this URL: ' + tesla.authorization_url())
+        tesla.fetch_token(authorization_response=input('Enter URL after authentication: '))
+    return tesla
 
 
-def get_access_token(c):
-    return None
+def custom_auth(url):
+    options = webdriver.ChromeOptions()
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    with webdriver.Chrome(chrome_options=options) as browser:
+        browser.get(url)
+        WebDriverWait(browser, 300).until(EC.url_contains('void/callback'))
+        return browser.current_url
 
 
 def tweet_major_mileage(miles, get_tweet=False):
@@ -154,26 +157,27 @@ def tweet_major_mileage(miles, get_tweet=False):
     pic = random.choice(get_pics())
     if DEBUG_MODE:
         print("Would tweet:\n%s with pic: %s" % (message, pic))
-        logT.debug("DEBUG mode, not tweeting: %s with pic: %s", message, pic)
+        log.info("DEBUG mode, not tweeting: %s with pic: %s", message, pic)
     else:
-        logT.info("Tweeting: %s with pic: %s", message, pic)
+        log.info("Tweeting: %s with pic: %s", message, pic)
         if get_tweet:
             return message, pic
         else:
-            tweet_string(message=message, log=logT, media=pic)
+            tweet_string(message=message, log=log, media=pic)
 
 
 def dump_current_tesla_status(c):
-    vehicles = c.vehicles
+    vehicles = c.vehicle_list()
     m = ""
     for v in vehicles:
         m += "%s status at %s\n" % (v["display_name"], datetime.datetime.today())
         for i in v:
             if i != 'display_name':
                 m += "   %s: %s\n" % (i, v[i])
+        v.get_vehicle_data()
         for s in ["vehicle_state", "charge_state", "climate_state", "drive_state", "gui_settings"]:
             m += "   %s:\n" % s
-            d = v.data_request("%s" % s)
+            d = v[s]
             for i in d:
                 m += "      %s: %s\n" % (i, d[i])
     return m
@@ -190,21 +194,22 @@ def check_tesla_fields(c, data):
         data["known_fields"] = {}
         data_changed = True
 
-    vehicles = c.vehicles
+    vehicles = c.vehicle_list()
     for v in vehicles:
-        logT.debug("   Processing %s" % v["display_name"])
+        log.debug("Processing %s" % v["display_name"])
         for i in v:
             if i not in data["known_fields"]:
-                logT.debug("      found new field %s. Value: %s", i, v[i])
+                log.debug("found new field %s. Value: %s", i, v[i])
                 new_fields.append(i)
                 data["known_fields"][i] = ts
                 data_changed = True
+        v.get_vehicle_data()
         for s in ["vehicle_state", "charge_state", "climate_state", "drive_state", "gui_settings"]:
-            logT.debug("   Checking %s" % s)
-            d = v.data_request("%s" % s)
+            log.debug("Checking %s" % s)
+            d = v[s]
             for i in d:
                 if i not in data["known_fields"]:
-                    logT.debug("      found new field %s. Value: %s", i, d[i])
+                    log.info("found new field %s. Value: %s", i, d[i])
                     new_fields.append(i)
                     data["known_fields"][i] = ts
                     data_changed = True
@@ -216,93 +221,101 @@ def check_tesla_fields(c, data):
         m += "\nRegards,\nRob"
         email(email=TESLA_EMAIL, message=m, subject="New Tesla API fields detected")
     else:
-        logT.debug("   No new API fields detected.")
+        log.debug("No new API fields detected.")
     return data_changed, data
 
 
 def get_temps(c, car):
     inside_temp = None
     outside_temp = None
-    for v in c.vehicles:
+    for v in c.vehicle_list():
         if v["display_name"] == car:
-            res = v.command("auto_conditioning_start")
-            logT.debug("AC start: %s", res)
+            v.get_vehicle_data()
+            res = v.command("CLIMATE_ON")
+            log.info("AC start: %s", res)
             time.sleep(5)
-            d = v.data_request("climate_state")
-            logT.debug("Climate: %s", d)
+            d = v["climate_state"]
+            log.info("Climate: %s", d)
             inside_temp = 9.0 / 5.0 * d["inside_temp"] + 32
             outside_temp = 9.0 / 5.0 * d["outside_temp"] + 32
-            res = v.command("auto_conditioning_stop")
-            logT.debug("AC stop: %s", res)
+            res = v.command("CLIMATE_OFF")
+            log.info("AC stop: %s", res)
     return inside_temp, outside_temp
 
 
 def trigger_garage_door(c, car):
-    logT.debug("Triggering garage door for %s", car)
-    for v in c.vehicles:
+    log.info("Triggering garage door for %s", car)
+    for v in c.vehicle_list():
         if v["display_name"] == car:
-            res = v.command("trigger_homelink")
-            logT.debug("Garage door trigger: %s", res)
+            v.get_vehicle_data()
+            res = v.command("TRIGGER_HOMELINK")
+            log.info("Garage door trigger: %s", res)
     return
 
 
 def trigger_sunroof(c, car, state):
-    logT.debug("Setting sunroof to %s for %s", state, car)
-    for v in c.vehicles:
+    log.info("Setting sunroof to %s for %s", state, car)
+    for v in c.vehicle_list():
         if v["display_name"] == car:
+            v.get_vehicle_data()
             cmd = {"state": state}
-            res = v.command("sun_roof_control", data=cmd)
-            logT.debug("Garage door trigger: %s", res)
+            res = v.command("CHANGE_SUNROOF_STATE", data=cmd)
+            log.debug("Garage door trigger: %s", res)
     return
 
 
 def get_odometer(c, car):
     odometer = None
-    for v in c.vehicles:
+    for v in c.vehicle_list():
         if v["display_name"] == car:
-            d = v.data_request("vehicle_state")
+            v.get_vehicle_data()
+            d = v["vehicle_state"]
             odometer = int(d["odometer"])
-    logT.debug("Mileage: %s", "{:,}".format(int(odometer)))
+    log.info("Mileage: %s", "{:,}".format(int(odometer)))
     return odometer
 
 
 def is_plugged_in(c, car):
     plugged_in = False
-    for v in c.vehicles:
+    for v in c.vehicle_list():
         if v["display_name"] == car:
-            d = v.data_request("charge_state")
+            v.get_vehicle_data()
+            d = v["charge_state"]
             # charge_port_door_open and charge_port_latch have been unreliable individually
             charge_door_open = d["charge_port_latch"] == "Disengaged" or d["charge_port_door_open"]
             state = d["charging_state"]
             plugged_in = charge_door_open and state != "Disconnected"
-            logT.debug("Door unlatched: %s. State: %s", charge_door_open, state)
-            logT.debug("Latch: %s Door open: %s", d["charge_port_latch"], d["charge_port_door_open"])
+            log.info("Door unlatched: %s. State: %s", charge_door_open, state)
+            log.info("Latch: %s Door open: %s", d["charge_port_latch"], d["charge_port_door_open"])
     return plugged_in
 
 
 def is_charging(c, car):
     rc = False
-    for v in c.vehicles:
+    for v in c.vehicle_list():
         if v["display_name"] == car:
-            d = v.data_request("charge_state")
-            logT.debug("   Charging State: %s", d["charging_state"])
+            v.get_vehicle_data()
+            d = v["charge_state"]
+            log.info("Charging State: %s", d["charging_state"])
             state = d["charging_state"]
             if state == "Charging" or state == "Complete":
                 rc = True
     return rc
 
+
 def get_current_state(c, car, include_temps=False):
     s = {}
-    for v in c.vehicles:
+    for v in c.vehicle_list():
         if v["display_name"] == car:
             if v['state'] == 'asleep':
                 continue
-            d = v.data_request("vehicle_state")
+            v.get_vehicle_data()
+            d = v["vehicle_state"]
             s["odometer"] = d["odometer"]
             s["version"] = d["car_version"]
             if include_temps:
                 s["inside_temp"], s["outside_temp"] = get_temps(c, car)
-            d = v.data_request("charge_state")
+            d = v["charge_state"]
             s["soc"] = d["battery_level"]
             s["ideal_range"] = d["ideal_battery_range"]
             s["rated_range"] = d["battery_range"]
@@ -310,17 +323,61 @@ def get_current_state(c, car, include_temps=False):
             s["charge_energy_added"] = d["charge_energy_added"]
             s["charge_miles_added_ideal"] = d["charge_miles_added_ideal"]
             s["charge_miles_added_rated"] = d["charge_miles_added_rated"]
-            logT.debug(s)
+            log.debug(s)
+            return s
+
+
+def sleep_check(c, car):
+    s = {}
+    for v in c.vehicle_list():
+        if v["display_name"] == car:
+            s['state'] = v['state']
+            s['timestamp'] = datetime.datetime.now()
+            awake = v['state'] not in ('asleep', 'offline')
+            if awake:
+                v.get_vehicle_data()
+                s["soc"] = v["charge_state"]["battery_level"]
+                s["charging"] = v["charge_state"]["charging_state"]
+                s["rated_range"] = v["charge_state"]["battery_range"]
+                s["driving"] = "Driving" if v["drive_state"]["shift_state"] not in (None, 'P') else "Parked"
+                if s["charging"] != "Charging":
+                    if s["driving"] == "Driving":
+                        s["assumed_state"] = "Driving"
+                    else:
+                        s["assumed_state"] = "Idle"
+                else:
+                    s["assumed_state"] = "Charging"
+                s["is_climate_on"] = v["climate_state"]["is_climate_on"]
+                s["battery_heater_on"] = v["charge_state"]["battery_heater_on"]
+            else:
+                s["assumed_state"] = "Sleeping"
+
+            log.debug(s)
+            log_h = open(SLEEP_LOG_FILE, "a")
+            if awake:
+                log_h.write(f"{datetime.datetime.now(datetime.timezone.utc).astimezone()},"
+                            f"{s['state']},"
+                            f"{s['soc']},"
+                            f"{s['rated_range']},"
+                            f"{s['charging']},"
+                            f"{s['assumed_state']},"
+                            f"{s['driving']},"
+                            f"{s['is_climate_on']},"
+                            f"{s['battery_heater_on']},"
+                            f"''\n")
+            else:
+                log_h.write(f"{datetime.datetime.now(datetime.timezone.utc).astimezone()},{s['state']},,,,{s['assumed_state']},''\n")
+            log.info(f"Sleep Poll: {s['assumed_state']}", extra=s)
             return s
 
 
 def load_data():
     if os.path.exists(DATA_FILE):
-        logT.debug("Loading existing tesla database")
+        log.debug("Loading existing tesla database")
         data = json.load(open(DATA_FILE, "r"))
-        logT.debug("  loaded")
+        log.debug("loaded")
     else:
-        logT.debug("No existing tesla database found")
+        log.debug("No existing tesla database found")
         data = {'daily_state': {}}
     if not 'daily_state_pm' in data:
         data['daily_state_pm'] = {}
@@ -336,14 +393,14 @@ def load_data():
 
 
 def save_data(data):
-    logT.debug("Save tesla database")
+    log.debug("Save tesla database")
     if not DEBUG_MODE:
         json.dump(data, open(DATA_FILE + ".tmp", "w"))
         if os.path.exists(DATA_FILE):
             os.remove(DATA_FILE)
         os.rename(DATA_FILE + ".tmp", DATA_FILE)
     else:
-        logT.debug("   Skipped saving due to debug mode")
+        log.debug("Skipped saving due to debug mode")
 
 
 def get_lock():
@@ -359,7 +416,7 @@ def get_lock():
             max_wait_count -= 1
             if max_wait_count == 0:
                 raise Exception("Lock file not getting released. Please investigate")
-            logT.debug("Someone else is running this tool right now. Sleeping")
+            log.debug("Someone else is running this tool right now. Sleeping")
             time.sleep(30)
 
 
@@ -377,7 +434,7 @@ def report_yesterday(data):
     t = t + datetime.timedelta(days=-1)
     yesterday_ts = t.strftime("%Y%m%d")
     if today_ts not in data["daily_state_am"] or yesterday_ts not in data["daily_state_am"]:
-        logT.debug("Skipping yesterday tweet due to missing items")
+        log.info("Skipping yesterday tweet due to missing items")
         m = None
         pic = None
     else:
@@ -399,7 +456,7 @@ def report_yesterday(data):
             # TODO: Could save prior efficiency from last charge and use that
             day = yesterday_ts
             time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
-            w = get_daytime_weather_data(logT, time_value)
+            w = get_daytime_weather_data(log, time_value)
             m = "Yesterday I drove my #Tesla %s miles. Avg temp %.0fF. " \
                 "@Teslamotors #bot" \
                 % ("{:,}".format(int(miles_driven)), w["avg_temp"])
@@ -408,7 +465,7 @@ def report_yesterday(data):
             # to report efficiency.
             day = yesterday_ts
             time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
-            w = get_daytime_weather_data(logT, time_value)
+            w = get_daytime_weather_data(log, time_value)
             efficiency = kw_used * 1000 / miles_driven
             # If efficiency isnt a reasonable number then don't report it.
             # Example, drive somewhere and don't charge -- efficiency is zero.
@@ -436,11 +493,12 @@ def check_current_firmware_version(c, data):
     v = None
     changed = False
     try:
-        v = c.vehicles[0]
-        v.data_request("vehicle_state")["car_version"].split(" ")[0]
-        logT.debug("Found firmware version %s", v)
+        v = c.vehicle_list()[0]
+        v.get_vehicle_data()
+        v = v["vehicle_state"]["car_version"].split(" ")[0]
+        log.debug("Found firmware version %s", v)
     except:
-        logT.warning("Problems getting firmware version")
+        log.warning("Problems getting firmware version")
 
     t = datetime.date.today()
     ts = t.strftime("%Y%m%d")
@@ -469,10 +527,10 @@ def check_current_firmware_version(c, data):
             pic = random.choice(VERSION_IMAGES)
             if DEBUG_MODE:
                 print("Would tweet:\n%s with pic: %s" % (message, pic))
-                logT.debug("DEBUG mode, not tweeting: %s with pic: %s", message, pic)
+                log.info("DEBUG mode, not tweeting: %s with pic: %s", message, pic)
             else:
-                logT.info("Tweeting: %s with pic: %s", message, pic)
-                tweet_string(message=message, log=logT, media=pic)
+                log.info("Tweeting: %s with pic: %s", message, pic)
+                tweet_string(message=message, log=log, media=pic)
     else:
         data["firmware"] = {}
         data["firmware"]["version"] = v
@@ -500,10 +558,11 @@ def main():
     parser.add_argument('--chargecheck', help='Check if car is currently charging', required=False,
                         action='store_true')
     parser.add_argument('--firmware', help='Check for new firmware versions', required=False, action='store_true')
+    parser.add_argument('--sleepcheck', help='Monitor sleeping state of Tesla', required=False, action='store_true')
     args = parser.parse_args()
 
     get_lock()
-    logT.debug("--- tesla.py start ---")
+    log.debug("--- tesla.py start ---")
 
     data = load_data()
     data_changed = False
@@ -516,46 +575,41 @@ def main():
     try:
         c = establish_connection(token)
     except:
-        logT.debug("Problems establishing connection")
+        log.debug("Problems establishing connection")
         c = establish_connection()
-
-    if get_access_token(c):
-        if not 'token' in data or data['token'] != get_access_token(c):
-            data['token'] = get_access_token(c)
-            data_changed = True
 
     if args.status:
         # Dump current Tesla status
         try:
             print(dump_current_tesla_status(c))
         except:
-            logT.warning("Couldn't dump status this pass")
+            log.warning("Couldn't dump status this pass")
 
     elif args.dump:
         # Dump all of Tesla API state information to disk
-        logT.debug("Dumping current Tesla state")
+        log.debug("Dumping current Tesla state")
         t = datetime.date.today()
         ts = t.strftime("%Y%m%d")
         try:
             m = dump_current_tesla_status(c)
             open(os.path.join(DUMP_DIR, "tesla_state_%s.txt" % ts), "w").write(m)
         except:
-            logT.warning("Couldn't get dump this pass")
+            log.warning("Couldn't get dump this pass")
 
     elif args.fields:
         # Check for new Tesla API fields and report if any found
-        logT.debug("Checking Tesla API fields")
+        log.debug("Checking Tesla API fields")
         try:
             data_changed, data = check_tesla_fields(c, data)
         except:
-            logT.warning("Couldn't check fields this pass")
+            log.warning("Couldn't check fields this pass")
 
     elif args.mileage:
         # Tweet mileage as it crosses 1,000 mile marks
         try:
             m = get_odometer(c, CAR_NAME)
         except:
-            logT.warning("Couldn't get odometer this pass")
+            log.warning("Couldn't get odometer this pass")
             return
 
         if "mileage_tweet" not in data:
@@ -570,22 +624,22 @@ def main():
         try:
             m = is_charging(c, CAR_NAME)
         except:
-            logT.warning("Couldn't get charge state this pass")
+            log.warning("Couldn't get charge state this pass")
             return
 
         if not data["charging"] and m:
-            logT.debug("   State change, not charging to charging")
+            log.debug("State change, not charging to charging")
             data["charging"] = True
             data["day_charges"] += 1
             data_changed = True
         elif data["charging"] and m is False:
-            logT.debug("   State change from charging to not charging")
+            log.debug("State change from charging to not charging")
             data["charging"] = False
             data_changed = True
 
     elif args.state:
         # Save current Tesla state information
-        logT.debug("Saving Tesla state")
+        log.debug("Saving Tesla state")
         retries = 3
         s = None
         while retries > 0:
@@ -595,12 +649,12 @@ def main():
             except:
                 retries -= 1
                 if retries > 0:
-                    logT.exception("   Problem getting current state, sleeping and trying again")
+                    log.exception("   Problem getting current state, sleeping and trying again")
                     time.sleep(30)
         if s is None:
-            logT.warning("   Could not fetch current state")
+            log.warning("   Could not fetch current state")
         else:
-            logT.debug("   got current state")
+            log.debug("got current state")
             t = datetime.date.today()
             ts = t.strftime("%Y%m%d")
             hour = datetime.datetime.now().hour
@@ -609,7 +663,7 @@ def main():
             else:
                 ampm = "pm"
             data["daily_state_%s" % ampm][ts] = s
-            logT.debug("   added to database")
+            log.debug("added to database")
             data_changed = True
 
     elif args.day:
@@ -647,7 +701,7 @@ def main():
 
     elif args.pluggedin:
         # Check if the Tesla is plugged in and alert if not
-        logT.debug("Checking if Tesla is plugged in")
+        log.debug("Checking if Tesla is plugged in")
         try:
             plugged_in = is_plugged_in(c, CAR_NAME)
             if not plugged_in:
@@ -656,24 +710,24 @@ def main():
                 message += "Current battery level is %d%%. (%d estimated miles)" % (s["soc"], int(s["estimated_range"]))
                 message += "\n\nRegards,\nRob"
                 email(email=TESLA_EMAIL, message=message, subject="Your Tesla isn't plugged in")
-                logT.debug("   Not plugged in. Emailed notice.")
+                log.debug("Not plugged in. Emailed notice.")
             else:
-                logT.debug("   Its plugged in.")
+                log.debug("Its plugged in.")
         except:
-            logT.warning("Problem checking plugged in state")
+            log.warning("Problem checking plugged in state")
 
     elif args.mailtest:
         # Test emailing
-        logT.debug("Testing email function")
+        log.debug("Testing email function")
         message = "Email test from tool.\n\n"
         message += "If you're getting this its working."
         message += "\n\nRegards,\nRob"
         try:
             email(email=TESLA_EMAIL, message=message, subject="Tesla Email Test")
-            logT.debug("   Successfully sent the mail.")
+            log.debug("Successfully sent the mail.")
             print("Mail send passed.")
         except:
-            logT.exception("Problem trying to send mail")
+            log.exception("Problem trying to send mail")
             print("Mail send failed, see log.")
 
     elif args.yesterday:
@@ -684,12 +738,12 @@ def main():
         if m:
             if DEBUG_MODE:
                 print("Would tweet:\n%s with pic: %s" % (m, pic))
-                logT.debug("DEBUG mode, not tweeting: %s with pic: %s", m, pic)
+                log.debug("DEBUG mode, not tweeting: %s with pic: %s", m, pic)
             else:
-                logT.info("Tweeting: %s with pic: %s", m, pic)
-                tweet_string(message=m, log=logT, media=pic)
+                log.info("Tweeting: %s with pic: %s", m, pic)
+                tweet_string(message=m, log=log, media=pic)
         else:
-            logT.debug("No update, skipping yesterday report")
+            log.debug("No update, skipping yesterday report")
 
     elif args.garage:
         # Open garage door (experimental as I dont have an AP car)
@@ -703,11 +757,25 @@ def main():
         # Change sunroof state
         trigger_sunroof(c, CAR_NAME, args.sunroof)
 
+    elif args.sleepcheck:
+        # Change sleeping state of tesla
+        tries = 0
+        while True:
+            try:
+                sleep_check(c, CAR_NAME)
+                break
+            except:
+                log.exception("Error checking sleep state")
+                if tries >= 3:
+                    break
+                time.sleep(10)
+                tries += 1
+
     if data_changed:
         save_data(data)
 
     remove_lock()
-    logT.debug("--- tesla.py end ---")
+    log.debug("--- tesla.py end ---")
 
 
 if __name__ == '__main__':
@@ -719,8 +787,8 @@ if __name__ == '__main__':
             break
         except HTTPError as e:
             if e.code >= 500 or e.code == 408:
-                logT.debug("Transient error from Tesla API: %d", e.code)
-                logT.debug("Retrying again in %d seconds", RETRY_SLEEP)
+                log.debug("Transient error from Tesla API: %d", e.code)
+                log.debug("Retrying again in %d seconds", RETRY_SLEEP)
                 time.sleep(RETRY_SLEEP)
 
                 # Unlock and retry
