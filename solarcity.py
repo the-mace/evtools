@@ -339,7 +339,7 @@ def populate_missing_data(data):
         data_changed = True
         save_data(data)
         upload_to_pvoutput(data, current_day)
-        time.sleep(10)
+        time.sleep(20)
     return data_changed
 
 
