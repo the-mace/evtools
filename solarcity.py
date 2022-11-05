@@ -83,7 +83,7 @@ PICTURES_PATH = "images/solar"
 
 # Logging setup
 DEF_FRMT = "%(asctime)s : %(levelname)-8s : %(funcName)-25s:%(lineno)-4s: %(message)s"
-loglevel = logging.DEBUG
+loglevel = logging.INFO
 log = logging.getLogger("SolarCity")
 loghandler = RotatingFileHandler(SOLAR_LOGFILE, maxBytes=5 * 1024 * 1024, backupCount=8)
 loghandler.setFormatter(logging.Formatter(DEF_FRMT))
@@ -224,10 +224,10 @@ def tweet_production(daylight_hours, cloud_cover, production, special):
 
     if DEBUG_MODE:
         print("Would tweet:\n%s" % message)
-        log.debug("DEBUG mode, not tweeting: %s", message)
+        log.info("DEBUG mode, not tweeting: %s", message)
     else:
         media = solar_image()
-        log.debug("Using media: %s", media)
+        log.info("Using media: %s", media)
         tweet_string(message=message, log=log, media=media)
 
 
@@ -237,10 +237,10 @@ def tweet_down():
               "No repair possible for months." % daysdown
     if DEBUG_MODE:
         print("Would tweet:\n%s" % message)
-        log.debug("DEBUG mode, not tweeting: %s", message)
+        log.info("DEBUG mode, not tweeting: %s", message)
     else:
         media = random.choice(SOLAR_IMAGES)
-        log.debug("Using media: %s", media)
+        log.info("Using media: %s", media)
         tweet_string(message=message, log=log, media=media)
 
 
@@ -251,7 +251,7 @@ def tweet_month(data):
               (show_with_units(generated_this_month), show_with_units(generated_this_year), SOLARCITY_REFERRAL)
     if DEBUG_MODE:
         print("Would tweet:\n%s" % message)
-        log.debug("DEBUG mode, not tweeting: %s", message)
+        log.info("DEBUG mode, not tweeting: %s", message)
     else:
         tweet_string(message=message, log=log, media=solar_image())
 
@@ -263,7 +263,7 @@ def tweet_year(data):
               (show_with_units(generated_this_year), show_with_units(total_generation), SOLARCITY_REFERRAL)
     if DEBUG_MODE:
         print("Would tweet:\n%s" % message)
-        log.debug("DEBUG mode, not tweeting: %s", message)
+        log.info("DEBUG mode, not tweeting: %s", message)
     else:
         tweet_string(message=message, log=log, media=random.choice(SOLAR_IMAGES))
 
@@ -324,7 +324,7 @@ def populate_missing_data(data):
         last = last + datetime.timedelta(days=1)
         current_day = last.strftime("%Y%m%d")
         if current_day in data['data']:
-            log.debug("Skipping %s" % current_day)
+            log.info("Skipping %s" % current_day)
             continue
         try:
             daylight_hours, cloud_cover, production = get_day_data(last)
@@ -334,7 +334,7 @@ def populate_missing_data(data):
         log_str = "populating missing: %s: daylight: %s cloud cover: %s production: %s" % \
                   (last, daylight_hours, cloud_cover, production)
         print(log_str)
-        log.debug(log_str)
+        log.info(log_str)
         data['data'][current_day] = {'daylight': daylight_hours, 'cloud': cloud_cover, 'production': production}
         data_changed = True
         save_data(data)
@@ -364,9 +364,9 @@ def analyze_data(data):
             production_min = d['production']
             production_min_day = day
 
-    log.debug("Max: %s on %s, Min: %s on %s." % (show_with_units(production_max), production_max_day,
+    log.info("Max: %s on %s, Min: %s on %s." % (show_with_units(production_max), production_max_day,
                                                  show_with_units(production_min), production_min_day))
-    log.debug("Total: %s" % show_with_units(total_generation))
+    log.info("Total: %s" % show_with_units(total_generation))
     return production_max_day, production_min_day, total_generation
 
 
@@ -443,7 +443,7 @@ def compute_generation_data(data):
     generated_this_year = 0
     total_generation = 0
 
-    log.debug("   This week: %d, last month: %d, last year: %d", this_week, this_month, this_year)
+    log.info("   This week: %d, last month: %d, last year: %d", this_week, this_month, this_year)
 
     for a in data['data']:
         production = data['data'][a]['production']
@@ -460,7 +460,7 @@ def compute_generation_data(data):
 
 
 def solarcity_report(data, no_email=False, no_tweet=False):
-    log.debug("Report on SolarCity Generation")
+    log.info("Report on SolarCity Generation")
     generated_this_week, generated_this_month, generated_this_year, total_generation = compute_generation_data(data)
 
     message = "Hi there, below is the weekly SolarCity generation report:\n\n"
@@ -476,7 +476,7 @@ def solarcity_report(data, no_email=False, no_tweet=False):
     if no_email or DEBUG_MODE:
         print("Would email message:\n%s" % message)
     else:
-        log.debug("   email report")
+        log.info("   email report")
         email(email=SOLARCITY_USER, message=message, subject="Weekly SolarCity Report")
 
     if not no_tweet:
@@ -500,7 +500,7 @@ def upload_to_pvoutput(data, day):
     else:
         pvoutput_key = os.environ['PVOUTPUT_KEY']
 
-    log.debug("Report weather info to pvoutput.org for %s", day)
+    log.info("Report weather info to pvoutput.org for %s", day)
 
     time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
     w = get_daytime_weather_data(log, time_value)
@@ -534,7 +534,7 @@ def upload_to_pvoutput(data, day):
     req = urllib.request.Request("http://pvoutput.org/service/r2/addoutput.jsp", data.encode('utf-8'), headers)
     response = urllib.request.urlopen(req)
     output = response.read()
-    log.debug("   Upload response: %s", output)
+    log.info("   Upload response: %s", output)
 
 
 def main():
@@ -579,39 +579,39 @@ def main():
 
     if args.monthly:
         # First check if its last day of the month
-        log.debug("Check for monthly update")
+        log.info("Check for monthly update")
         now = datetime.datetime.now()
         dow, last_day = calendar.monthrange(now.year, now.month)
-        log.debug("Last day of month: %d. Current day: %d", last_day, now.day)
+        log.info("Last day of month: %d. Current day: %d", last_day, now.day)
         if last_day == now.day:
-            log.debug("   Last day of month.")
+            log.info("   Last day of month.")
             current_month = time.strftime("%Y%m")
             if 'lastmonthlytweet' not in data['config'] or data['config']['lastmonthlytweet'] != current_month:
                 tweet_month(data)
                 data['config']['lastmonthlytweet'] = current_month
                 data_changed = True
         else:
-            log.debug("   Not last day of month, skipping. ")
+            log.info("   Not last day of month, skipping. ")
 
     if args.yearly:
         # First check if its last day of the year
-        log.debug("Check for annual update")
+        log.info("Check for annual update")
         now = datetime.datetime.now()
         if now.month == 12:
             dow, last_day = calendar.monthrange(now.year, now.month)
-            log.debug("Last day of month: %d. Current day: %d", last_day, now.day)
+            log.info("Last day of month: %d. Current day: %d", last_day, now.day)
             if last_day == now.day:
-                log.debug("   Last day of year.")
+                log.info("   Last day of year.")
                 current_month = time.strftime("%Y%m")
                 if 'lastyearlytweet' not in data['config'] or data['config']['lastyearlytweet'] != current_month:
                     tweet_year(data)
                     data['config']['lastyearlytweet'] = current_month
                     data_changed = True
             else:
-                log.debug("   Not last day of year, skipping. ")
+                log.info("   Not last day of year, skipping. ")
 
     if args.weather is not None:
-        log.debug("Check weather data")
+        log.info("Check weather data")
         if int(args.weather) == 0:
             time_value = int(time.time())
         else:
@@ -628,7 +628,7 @@ def main():
         # analyze_weather(data)
 
     if args.daily:
-        log.debug("Check for daily update")
+        log.info("Check for daily update")
         current_day = time.strftime("%Y%m%d")
         if data['config']['lastdailytweet'] != current_day or DEBUG_MODE or args.force:
             daylight_hours, cloud_cover, production = get_day_data()
@@ -679,7 +679,7 @@ def main():
                         log_str = "populating missing: %s: daylight: %s cloud cover: %s production: %s" % \
                                   (last, daylight_hours, cloud_cover, production)
                         print(log_str)
-                        log.debug(log_str)
+                        log.info(log_str)
                         data['data'][current_day] = {'daylight': daylight_hours, 'cloud': cloud_cover, 'production': production}
                         data_changed = True
                         save_data(data)
@@ -695,7 +695,7 @@ def main():
 
     if args.blog:
         # Export all entries found for posting to static page on blog: teslaliving.net/solarcity
-        log.debug("Reporting on SolarCity generation for blog")
+        log.info("Reporting on SolarCity generation for blog")
         print('<a href="http://ts.la/rob6663">@Tesla Solar</a> Solar Installation')
         print('<h3>System Results</h3>')
         print("<b>%s total power generated via @Tesla Solar as of %s</b>" % (show_with_units(total_generation),
