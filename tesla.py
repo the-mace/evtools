@@ -368,8 +368,8 @@ def sleep_check(c, car):
                         f"{s['is_climate_on'] if 'is_climate_on' in s else ''},"
                         f"{s['battery_heater_on'] if 'battery_heater_on' in s else ''},"
                         ","
-                        f"{s['timestamp']}"
-                        )
+                        f"{s['timestamp']},"
+                        "\n")
             log.info(f"Sleep Poll: {s['assumed_state']}", extra=s)
             return s
 
