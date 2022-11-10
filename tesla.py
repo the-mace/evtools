@@ -354,19 +354,18 @@ def sleep_check(c, car):
 
             log.debug(s)
             log_h = open(SLEEP_LOG_FILE, "a")
-            if awake:
-                log_h.write(f"{datetime.datetime.now(datetime.timezone.utc).astimezone()},"
-                            f"{s['state']},"
-                            f"{s['soc']},"
-                            f"{s['rated_range']},"
-                            f"{s['charging']},"
-                            f"{s['assumed_state']},"
-                            f"{s['driving']},"
-                            f"{s['is_climate_on']},"
-                            f"{s['battery_heater_on']},"
-                            f"''\n")
-            else:
-                log_h.write(f"{datetime.datetime.now(datetime.timezone.utc).astimezone()},{s['state']},,,,{s['assumed_state']},''\n")
+            log_h.write(f"{datetime.datetime.now(datetime.timezone.utc).astimezone()},"
+                        f"{s['state']},"
+                        f"{s['soc' if 'soc' in s else '']},"
+                        f"{s['rated_range' if 'rated_range' in s else '']},"
+                        f"{s['charging' if 'charging' in s else '']},"
+                        f"{s['assumed_state' if 'assumed_state' in s else '']},"
+                        f"{s['driving' if 'driving' in s else '']},"
+                        f"{s['is_climate_on' if 'is_climate_on' in s else '']},"
+                        f"{s['battery_heater_on' if 'battery_heater_on' in s else '']},"
+                        ","
+                        f"{s['timestamp']}"
+                        )
             log.info(f"Sleep Poll: {s['assumed_state']}", extra=s)
             return s
 
