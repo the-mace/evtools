@@ -66,14 +66,15 @@ import random
 from tl_weather import get_daytime_weather_data
 import requests
 from bs4 import BeautifulSoup
+from pythonjsonlogger import jsonlogger
 
 # Wait time for page loads
 PAGE_LOAD_TIMEOUT = 240 * 1000
 
 # Where logging output from this tool goes. Modify path as needed
-SOLAR_LOGFILE = os.environ.get('SOLAR_LOGFILE')
-if not SOLAR_LOGFILE:
-    SOLAR_LOGFILE = os.path.expanduser("~/script/logs/solarcity.log")
+LOGFILE = os.environ.get('SOLAR_LOGFILE')
+if not LOGFILE:
+    LOGFILE = os.path.expanduser("~/script/logs/solarcity.log")
 
 # Data file containing all the saved state information
 DATA_FILE = "solarcity.json"
@@ -82,12 +83,15 @@ DATA_FILE = "solarcity.json"
 PICTURES_PATH = "images/solar"
 
 # Logging setup
-DEF_FRMT = "%(asctime)s : %(levelname)-8s : %(funcName)-25s:%(lineno)-4s: %(message)s"
+log = logging.getLogger(__name__)
 loglevel = logging.INFO
-log = logging.getLogger("SolarCity")
-loghandler = RotatingFileHandler(SOLAR_LOGFILE, maxBytes=5 * 1024 * 1024, backupCount=8)
-loghandler.setFormatter(logging.Formatter(DEF_FRMT))
-log.addHandler(loghandler)
+DEF_FRMT = "%(asctime)s : %(levelname)-8s : %(funcName)-25s:%(lineno)-4s: %(message)s"
+loghandler1 = RotatingFileHandler(LOGFILE, maxBytes=5 * 1024 * 1024, backupCount=8)
+loghandler2 = RotatingFileHandler(LOGFILE + '.json', maxBytes=5 * 1024 * 1024, backupCount=8)
+loghandler1.setFormatter(logging.Formatter(DEF_FRMT))
+loghandler2.setFormatter(jsonlogger.JsonFormatter())
+log.addHandler(loghandler1)
+log.addHandler(loghandler2)
 log.setLevel(loglevel)
 
 # Get the collection of pictures

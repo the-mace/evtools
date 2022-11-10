@@ -129,7 +129,7 @@ def tweet_string(message, log, media=None):
             log.exception("   Problem trying to tweet string")
         retries += 1
         s = random.randrange(5, 10 * retries)
-        log.debug("   sleeping %d seconds for retry", s)
+        log.debug("sleeping %d seconds for retry", s)
         time.sleep(s)
 
     log.setLevel(old_level)
@@ -138,13 +138,13 @@ def tweet_string(message, log, media=None):
 
 
 def tweet_price(price, log, stock, extra="", image=None):
-    log.debug("      Tweet about stock price for %s: $%s", stock, price)
+    log.debug("Tweet about stock price for %s: $%s", stock, price)
     message = "$%s current stock price: $%s. %s #bot" % (stock, price, extra)
     tweet_string(message=message, log=log, media=image)
 
 
 def tweet_search(log, item, limit=50):
-    log.debug("   Searching twitter for %s", item)
+    log.debug("Searching twitter for %s", item)
     check_twitter_config()
     if len(item) > 500:
         log.error("      Search string too long")
@@ -168,7 +168,7 @@ def check_relationship(log, id):
     my_screen_name = get_screen_name(log)
     if my_screen_name == "Unknown":
         raise("Couldn't get my own screen name")
-    log.debug("      Checking relationship of %s with me (%s)", id, my_screen_name)
+    log.debug("Checking relationship of %s with me (%s)", id, my_screen_name)
     check_twitter_config()
     logging.captureWarnings(True)
     old_level = log.getEffectiveLevel()
@@ -188,7 +188,7 @@ def check_relationship(log, id):
 
 
 def follow_twitter_user(log, id):
-    log.debug("   Following %s", id)
+    log.debug("Following %s", id)
     check_twitter_config()
     logging.captureWarnings(True)
     old_level = log.getEffectiveLevel()
@@ -207,7 +207,7 @@ def follow_twitter_user(log, id):
 
 
 def unfollow_twitter_user(log, id):
-    log.debug("   Unfollowing %s", id)
+    log.debug("Unfollowing %s", id)
     check_twitter_config()
     logging.captureWarnings(True)
     old_level = log.getEffectiveLevel()
@@ -226,7 +226,7 @@ def unfollow_twitter_user(log, id):
 
 
 def get_account_details(log, id):
-    log.debug("   Getting account details for %s", id)
+    log.debug("Getting account details for %s", id)
     check_twitter_config()
     logging.captureWarnings(True)
     old_level = log.getEffectiveLevel()
@@ -246,10 +246,10 @@ def get_account_details(log, id):
 
 
 def get_follower_count(log, id):
-    log.debug("   Getting follower count for %s", id)
+    log.debug("Getting follower count for %s", id)
     details = get_account_details(log, id)
     if details:
-        log.debug("    %d", details["followers_count"])
+        log.debug("%d", details["followers_count"])
         return details["followers_count"]
     else:
         return None
@@ -258,7 +258,7 @@ def get_follower_count(log, id):
 def get_screen_name(log):
     global MYSELF
     if not MYSELF or MYSELF == "Unknown":
-        log.debug("   Getting current user screen name")
+        log.debug("Getting current user screen name")
         check_twitter_config()
         logging.captureWarnings(True)
         old_level = log.getEffectiveLevel()
@@ -283,7 +283,7 @@ def get_screen_name(log):
 
 
 def get_following(log, id):
-    log.debug("  Getting people %s is following", id)
+    log.debug("Getting people %s is following", id)
     check_twitter_config()
     logging.captureWarnings(True)
     old_level = log.getEffectiveLevel()
@@ -309,20 +309,20 @@ def get_following(log, id):
         cursor = following["next_cursor"]
         if cursor:
             s = random.randint(55, 65)
-            log.debug("      Sleeping %ds to avoid rate limit. Cursor: %s", s, cursor)
+            log.debug("Sleeping %ds to avoid rate limit. Cursor: %s", s, cursor)
             time.sleep(s)
         else:
-            log.debug("      Normal query end")
+            log.debug("Normal query end")
 
         max_loops -= 1
         if max_loops <= 0:
-            log.debug("      Killing search due to max loops")
+            log.debug("Killing search due to max loops")
             break
     log.setLevel(old_level)
 
 
 def get_followers(log, id):
-    log.debug("  Getting people following % s", id)
+    log.debug("Getting people following % s", id)
     check_twitter_config()
     logging.captureWarnings(True)
     old_level = log.getEffectiveLevel()
@@ -348,13 +348,13 @@ def get_followers(log, id):
         cursor = following["next_cursor"]
         if cursor:
             s = random.randint(55, 65)
-            log.debug("      Sleeping %ds to avoid rate limit. Cursor: %s", s, cursor)
+            log.debug("Sleeping %ds to avoid rate limit. Cursor: %s", s, cursor)
             time.sleep(s)
         else:
-            log.debug("      Normal query end")
+            log.debug("Normal query end")
 
         max_loops -= 1
         if max_loops <= 0:
-            log.debug("      Killing search due to max loops")
+            log.debug("Killing search due to max loops")
             break
     log.setLevel(old_level)

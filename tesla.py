@@ -70,11 +70,15 @@ from selenium.webdriver.support.ui import WebDriverWait
 LOGFILE = os.path.expanduser(os.environ['TESLA_LOGFILE'])
 
 log = logging.getLogger(__name__)
-loghandler = RotatingFileHandler(LOGFILE, maxBytes=5 * 1024 * 1024, backupCount=8)
-formatter = jsonlogger.JsonFormatter()
-loghandler.setFormatter(formatter)
-log.addHandler(loghandler)
-log.setLevel(logging.INFO)
+loglevel = logging.INFO
+DEF_FRMT = "%(asctime)s : %(levelname)-8s : %(funcName)-25s:%(lineno)-4s: %(message)s"
+loghandler1 = RotatingFileHandler(LOGFILE, maxBytes=5 * 1024 * 1024, backupCount=8)
+loghandler2 = RotatingFileHandler(LOGFILE + '.json', maxBytes=5 * 1024 * 1024, backupCount=8)
+loghandler1.setFormatter(logging.Formatter(DEF_FRMT))
+loghandler2.setFormatter(jsonlogger.JsonFormatter())
+log.addHandler(loghandler1)
+log.addHandler(loghandler2)
+log.setLevel(loglevel)
 
 # Data file containing all the saved state information
 DATA_FILE = os.path.expanduser(os.getenv('TESLA_DATA_FILE', "tesla.json"))
@@ -354,19 +358,18 @@ def sleep_check(c, car):
 
             log.debug(s)
             log_h = open(SLEEP_LOG_FILE, "a")
-            if awake:
-                log_h.write(f"{datetime.datetime.now(datetime.timezone.utc).astimezone()},"
-                            f"{s['state']},"
-                            f"{s['soc']},"
-                            f"{s['rated_range']},"
-                            f"{s['charging']},"
-                            f"{s['assumed_state']},"
-                            f"{s['driving']},"
-                            f"{s['is_climate_on']},"
-                            f"{s['battery_heater_on']},"
-                            f"''\n")
-            else:
-                log_h.write(f"{datetime.datetime.now(datetime.timezone.utc).astimezone()},{s['state']},,,,{s['assumed_state']},''\n")
+            log_h.write(f"{datetime.datetime.now(datetime.timezone.utc).astimezone()},"
+                        f"{s['state']},"
+                        f"{s['soc' if 'soc' in s else '']},"
+                        f"{s['rated_range' if 'rated_range' in s else '']},"
+                        f"{s['charging' if 'charging' in s else '']},"
+                        f"{s['assumed_state' if 'assumed_state' in s else '']},"
+                        f"{s['driving' if 'driving' in s else '']},"
+                        f"{s['is_climate_on' if 'is_climate_on' in s else '']},"
+                        f"{s['battery_heater_on' if 'battery_heater_on' in s else '']},"
+                        ","
+                        f"{s['timestamp']}"
+                        )
             log.info(f"Sleep Poll: {s['assumed_state']}", extra=s)
             return s
 
