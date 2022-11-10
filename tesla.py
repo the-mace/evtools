@@ -137,9 +137,9 @@ def establish_connection(token=None):
     log.debug("Connecting to Tesla")
     tesla = teslapy.Tesla(TESLA_EMAIL, authenticator=custom_auth)
     if not tesla.authorized:
-        log.info("Not authorized, attempting to re-authenticate")
-        log.info('Use browser to login. Page Not Found will be shown at success.')
-        log.info('Open this URL: ' + tesla.authorization_url())
+        print("Not authorized, attempting to re-authenticate")
+        print('Use browser to login. Page Not Found will be shown at success.')
+        print('Open this URL: ' + tesla.authorization_url())
         tesla.fetch_token(authorization_response=input('Enter URL after authentication: '))
     return tesla
 
