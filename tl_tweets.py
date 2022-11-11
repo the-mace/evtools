@@ -143,8 +143,8 @@ def tweet_price(price, log, stock, extra="", image=None):
     tweet_string(message=message, log=log, media=image)
 
 
-def tweet_search(log, item, limit=50):
-    log.debug("Searching twitter for %s", item)
+def tweet_search(log, item, limit=50, since_id=None):
+    log.debug("Searching twitter for '%s'", item)
     check_twitter_config()
     if len(item) > 500:
         log.error("      Search string too long")
@@ -154,11 +154,13 @@ def tweet_search(log, item, limit=50):
     log.setLevel(logging.ERROR)
     twitter = Twython(APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET)
     try:
-        result = twitter.search(q=item, count=limit)
+        result = twitter.search(q=item, count=limit, since_id=since_id)
     except TwythonAuthError as e:
+        log.setLevel(old_level)
         twitter_auth_issue(e)
         raise
     except:
+        log.setLevel(old_level)
         raise
     log.setLevel(old_level)
     return result
@@ -358,3 +360,49 @@ def get_followers(log, id):
             log.debug("Killing search due to max loops")
             break
     log.setLevel(old_level)
+
+
+def favorite_tweet(log, id):
+    log.debug("Favoriting tweet % s", id)
+    check_twitter_config()
+    logging.captureWarnings(True)
+    old_level = log.getEffectiveLevel()
+    log.setLevel(logging.ERROR)
+    twitter = Twython(APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET)
+    log.setLevel(old_level)
+    try:
+        log.setLevel(logging.ERROR)
+        res = twitter.create_favorite(id=id)
+        log.setLevel(old_level)
+        return res
+    except TwythonAuthError as e:
+        log.setLevel(old_level)
+        if 'You have already favorited this status' in str(e):
+            log.info("tweet already favorited")
+        else:
+            log.exception("Problem trying to favorite tweet")
+            twitter_auth_issue(e)
+        raise
+
+
+def retweet_tweet(log, id):
+    log.debug("Retweeting tweet % s", id)
+    check_twitter_config()
+    logging.captureWarnings(True)
+    old_level = log.getEffectiveLevel()
+    log.setLevel(logging.ERROR)
+    twitter = Twython(APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET)
+    log.setLevel(old_level)
+    try:
+        log.setLevel(logging.ERROR)
+        res = twitter.retweet(id=id)
+        log.setLevel(old_level)
+        return res
+    except TwythonAuthError as e:
+        log.setLevel(old_level)
+        if 'You have already retweeted this status' in str(e):
+            log.info("tweet already retweeted")
+        else:
+            log.exception("Problem trying to retweeted tweet")
+            twitter_auth_issue(e)
+        raise
