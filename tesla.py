@@ -164,13 +164,8 @@ def is_awake(v):
 def get_vehicle_data(v, force_wake):
     global last_poke
     global poked_car
-    poke_ok = True
     if last_poke:
         time_since_last_poke = datetime.datetime.now() - last_poke
-        if not force_wake and \
-                time_since_last_poke < datetime.timedelta(minutes=MIN_TIME_BETWEEN_POKES):
-            log.info(f"Car poked too recently, getting cached vehicle data (last poke: {time_since_last_poke})")
-            poke_ok = False
     else:
         time_since_last_poke = 'unknown'
 
@@ -179,8 +174,11 @@ def get_vehicle_data(v, force_wake):
         do_poke = True
     elif not is_awake(v):
         do_poke = True
-    elif poke_ok:
-        do_poke = True
+    else:
+        if time_since_last_poke < datetime.timedelta(minutes=MIN_TIME_BETWEEN_POKES):
+            log.info(f"Car poked too recently, getting cached vehicle data (last poke: {time_since_last_poke})")
+        else:
+            do_poke = True
 
     if do_poke:
         # Could wake/keep car awake longer
