@@ -165,7 +165,7 @@ def get_vehicle_data(v, force_wake):
             time_since_last_poke = datetime.datetime.now() - last_poke
         else:
             time_since_last_poke = 'unknown'
-        log.info(f"Car awake, getting vehicle data (time since last poke: {time_since_last_poke}")
+        log.info(f"Car awake, getting vehicle data (time since last poke: {time_since_last_poke})")
         v.get_vehicle_data()
         last_poke = datetime.datetime.now()
     else:
@@ -794,7 +794,7 @@ def main():
                 time.sleep(10)
                 tries += 1
 
-    if last_poke != data["last_poke"]:
+    if "last_poke" not in data or last_poke != data["last_poke"]:
         data_changed = True
         data["last_poke"] = last_poke
 
