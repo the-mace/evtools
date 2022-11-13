@@ -175,7 +175,7 @@ def get_vehicle_data(v, force_wake):
         v.get_vehicle_data()
         last_poke = datetime.datetime.now()
     else:
-        log.info("Car sleeping, getting cached vehicle data (last poke: {time_since_last_poke})")
+        log.info(f"Car sleeping, getting cached vehicle data (last poke: {time_since_last_poke})")
         v.get_latest_vehicle_data()
 
 
@@ -314,13 +314,14 @@ def is_plugged_in(c, car):
     for v in c.vehicle_list():
         if v["display_name"] == car:
             get_vehicle_data(v, force_wake=False)
-            d = v["charge_state"]
-            # charge_port_door_open and charge_port_latch have been unreliable individually
-            charge_door_open = d["charge_port_latch"] == "Disengaged" or d["charge_port_door_open"]
-            state = d["charging_state"]
-            plugged_in = charge_door_open and state != "Disconnected"
-            log.info("Door unlatched: %s. State: %s", charge_door_open, state)
-            log.info("Latch: %s Door open: %s", d["charge_port_latch"], d["charge_port_door_open"])
+            if "charge_state" in v:
+                d = v["charge_state"]
+                # charge_port_door_open and charge_port_latch have been unreliable individually
+                charge_door_open = d["charge_port_latch"] == "Disengaged" or d["charge_port_door_open"]
+                state = d["charging_state"]
+                plugged_in = charge_door_open and state != "Disconnected"
+                log.info("Door unlatched: %s. State: %s", charge_door_open, state)
+                log.info("Latch: %s Door open: %s", d["charge_port_latch"], d["charge_port_door_open"])
     return plugged_in
 
 
@@ -329,11 +330,12 @@ def is_charging(c, car):
     for v in c.vehicle_list():
         if v["display_name"] == car:
             get_vehicle_data(v, force_wake=False)
-            d = v["charge_state"]
-            log.info("Charging State: %s", d["charging_state"])
-            state = d["charging_state"]
-            if state == "Charging" or state == "Complete":
-                rc = True
+            if "charge_state" in v:
+                d = v["charge_state"]
+                log.info("Charging State: %s", d["charging_state"])
+                state = d["charging_state"]
+                if state == "Charging" or state == "Complete":
+                    rc = True
     return rc
 
 
@@ -347,14 +349,15 @@ def get_current_state(c, car, include_temps=False):
             s["version"] = d["car_version"]
             if include_temps:
                 s["inside_temp"], s["outside_temp"] = get_temps(c, car)
-            d = v["charge_state"]
-            s["soc"] = d["battery_level"]
-            s["ideal_range"] = d["ideal_battery_range"]
-            s["rated_range"] = d["battery_range"]
-            s["estimated_range"] = d["est_battery_range"]
-            s["charge_energy_added"] = d["charge_energy_added"]
-            s["charge_miles_added_ideal"] = d["charge_miles_added_ideal"]
-            s["charge_miles_added_rated"] = d["charge_miles_added_rated"]
+            if "charge_state" in v:
+                d = v["charge_state"]
+                s["soc"] = d["battery_level"]
+                s["ideal_range"] = d["ideal_battery_range"]
+                s["rated_range"] = d["battery_range"]
+                s["estimated_range"] = d["est_battery_range"]
+                s["charge_energy_added"] = d["charge_energy_added"]
+                s["charge_miles_added_ideal"] = d["charge_miles_added_ideal"]
+                s["charge_miles_added_rated"] = d["charge_miles_added_rated"]
             log.debug(s)
             return s
 
@@ -367,10 +370,20 @@ def sleep_check(c, car):
             s['timestamp'] = datetime.datetime.now()
             awake = v['state'] not in ('asleep', 'offline')
             get_vehicle_data(v, force_wake=False)
-            s["soc"] = v["charge_state"]["battery_level"]
-            s["charging"] = v["charge_state"]["charging_state"]
-            s["rated_range"] = v["charge_state"]["battery_range"]
-            s["driving"] = "Driving" if v["drive_state"]["shift_state"] not in (None, 'P') else "Parked"
+            if "charge_state" in v:
+                s["soc"] = v["charge_state"]["battery_level"]
+                s["charging"] = v["charge_state"]["charging_state"]
+                s["rated_range"] = v["charge_state"]["battery_range"]
+                s["battery_heater_on"] = v["charge_state"]["battery_heater_on"]
+            else:
+                s["soc"] = ''
+                s["charging"] = ''
+                s["rated_range"] = ''
+                s["battery_heater_on"] = ''
+            if "drive_state" in v:
+                s["driving"] = "Driving" if v["drive_state"]["shift_state"] not in (None, 'P') else "Parked"
+            else:
+                s["driving"] = ''
             if not awake:
                 s["assumed_state"] = "Sleeping"
             elif s["charging"] != "Charging":
@@ -380,8 +393,10 @@ def sleep_check(c, car):
                     s["assumed_state"] = "Idle"
             else:
                 s["assumed_state"] = "Charging"
-            s["is_climate_on"] = v["climate_state"]["is_climate_on"]
-            s["battery_heater_on"] = v["charge_state"]["battery_heater_on"]
+            if "climate_state" in v:
+                s["is_climate_on"] = v["climate_state"]["is_climate_on"]
+            else:
+                s["is_climate_on"] = ''
 
             log_h = open(SLEEP_LOG_FILE, "a")
             log_h.write(f"{datetime.datetime.now(datetime.timezone.utc).astimezone()},"
@@ -567,6 +582,20 @@ def check_current_firmware_version(c, data):
     return changed
 
 
+def was_car_poked(data):
+    poked = False
+    if last_poke:
+        if "last_poke" not in data:
+            poked = True
+        elif "last_poke" in data:
+            if last_poke != datetime.datetime.strptime(data["last_poke"],
+                                                       '%Y-%m-%dT%H:%M:%S.%f'):
+                poked = True
+        else:
+            poked = True
+    return poked
+
+
 def main():
     parser = argparse.ArgumentParser(description='Tesla Control')
     parser.add_argument('--status', help='Get car status', required=False, action='store_true')
@@ -681,7 +710,7 @@ def main():
                     time.sleep(30)
         if s is None:
             log.warning("   Could not fetch current state")
-        else:
+        elif was_car_poked(data):
             log.debug("got current state")
             t = datetime.date.today()
             ts = t.strftime("%Y%m%d")
@@ -693,6 +722,8 @@ def main():
             data["daily_state_%s" % ampm][ts] = s
             log.debug("added to database")
             data_changed = True
+        else:
+            log.debug("Didn't poke car so state not complete")
 
     elif args.day:
         # Show Tesla state information from a given day
@@ -801,18 +832,7 @@ def main():
                 time.sleep(10)
                 tries += 1
 
-    poked = False
-    if last_poke:
-        if "last_poke" not in data:
-            poked = True
-        elif "last_poke" in data:
-            if last_poke != datetime.datetime.strptime(data["last_poke"],
-                                                       '%Y-%m-%dT%H:%M:%S.%f'):
-                poked = True
-        else:
-            poked = True
-
-    if poked:
+    if was_car_poked(data):
         data_changed = True
         data["last_poke"] = last_poke.isoformat()
 
