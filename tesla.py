@@ -872,8 +872,8 @@ if __name__ == '__main__':
             break
         except HTTPError as e:
             if e.code >= 500 or e.code == 408:
-                log.debug("Transient error from Tesla API: %d", e.code)
-                log.debug("Retrying again in %d seconds", RETRY_SLEEP)
+                log.warning("Transient error from Tesla API: %d", e.code)
+                log.info("Retrying again in %d seconds", RETRY_SLEEP)
                 time.sleep(RETRY_SLEEP)
 
                 # Unlock and retry
