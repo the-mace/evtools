@@ -57,8 +57,6 @@ from tl_tweets import tweet_string
 from tl_email import email
 from tl_weather import get_daytime_weather_data
 import glob
-import sys
-import teslapy
 from pythonjsonlogger import jsonlogger
 import teslapy
 from selenium import webdriver
@@ -153,11 +151,29 @@ def custom_auth(url):
         return browser.current_url
 
 
+def is_awake(v):
+    return v['state'] not in ('asleep', 'offline')
+
+
+def get_vehicle_data(v, force_wake):
+    if force_wake or is_awake(v):
+        # Could wake/keep car awake longer
+        log.info("Car awake, getting vehicle data")
+        v.get_vehicle_data()
+    else:
+        log.info("Car sleeping, getting cached vehicle data")
+        v.get_latest_vehicle_data()
+
+
 def tweet_major_mileage(miles, get_tweet=False):
     m = "{:,}".format(miles)
-    a = random.choice(["an amazing", "an awesome", "a fantastic", "a wonderful"])
+    a = random.choice(["an amazing",
+                       "an awesome",
+                       "a fantastic",
+                       "a great",
+                       "a wonderful"])
     message = "Just passed %s miles on my Model S 75D! It's been %s experience. " \
-              "#Tesla @TeslaMotors @Teslarati #bot" % (m, a)
+              "#Tesla @Tesla @Teslarati #bot" % (m, a)
     pic = random.choice(get_pics())
     if DEBUG_MODE:
         print("Would tweet:\n%s with pic: %s" % (message, pic))
@@ -178,7 +194,7 @@ def dump_current_tesla_status(c):
         for i in v:
             if i != 'display_name':
                 m += "   %s: %s\n" % (i, v[i])
-        v.get_vehicle_data()
+        get_vehicle_data(v, force_wake=False)
         for s in ["vehicle_state", "charge_state", "climate_state", "drive_state", "gui_settings"]:
             m += "   %s:\n" % s
             d = v[s]
@@ -207,7 +223,7 @@ def check_tesla_fields(c, data):
                 new_fields.append(i)
                 data["known_fields"][i] = ts
                 data_changed = True
-        v.get_vehicle_data()
+        get_vehicle_data(v, force_wake=False)
         for s in ["vehicle_state", "charge_state", "climate_state", "drive_state", "gui_settings"]:
             log.debug("Checking %s" % s)
             d = v[s]
@@ -234,7 +250,7 @@ def get_temps(c, car):
     outside_temp = None
     for v in c.vehicle_list():
         if v["display_name"] == car:
-            v.get_vehicle_data()
+            get_vehicle_data(v, force_wake=False)
             res = v.command("CLIMATE_ON")
             log.info("AC start: %s", res)
             time.sleep(5)
@@ -251,7 +267,7 @@ def trigger_garage_door(c, car):
     log.info("Triggering garage door for %s", car)
     for v in c.vehicle_list():
         if v["display_name"] == car:
-            v.get_vehicle_data()
+            get_vehicle_data(v, force_wake=True)
             res = v.command("TRIGGER_HOMELINK")
             log.info("Garage door trigger: %s", res)
     return
@@ -261,7 +277,7 @@ def trigger_sunroof(c, car, state):
     log.info("Setting sunroof to %s for %s", state, car)
     for v in c.vehicle_list():
         if v["display_name"] == car:
-            v.get_vehicle_data()
+            get_vehicle_data(v, force_wake=True)
             cmd = {"state": state}
             res = v.command("CHANGE_SUNROOF_STATE", data=cmd)
             log.debug("Garage door trigger: %s", res)
@@ -272,7 +288,7 @@ def get_odometer(c, car):
     odometer = None
     for v in c.vehicle_list():
         if v["display_name"] == car:
-            v.get_vehicle_data()
+            get_vehicle_data(v, force_wake=False)
             d = v["vehicle_state"]
             odometer = int(d["odometer"])
     log.info("Mileage: %s", "{:,}".format(int(odometer)))
@@ -283,7 +299,7 @@ def is_plugged_in(c, car):
     plugged_in = False
     for v in c.vehicle_list():
         if v["display_name"] == car:
-            v.get_vehicle_data()
+            get_vehicle_data(v, force_wake=False)
             d = v["charge_state"]
             # charge_port_door_open and charge_port_latch have been unreliable individually
             charge_door_open = d["charge_port_latch"] == "Disengaged" or d["charge_port_door_open"]
@@ -298,7 +314,7 @@ def is_charging(c, car):
     rc = False
     for v in c.vehicle_list():
         if v["display_name"] == car:
-            v.get_vehicle_data()
+            get_vehicle_data(v, force_wake=False)
             d = v["charge_state"]
             log.info("Charging State: %s", d["charging_state"])
             state = d["charging_state"]
@@ -313,7 +329,7 @@ def get_current_state(c, car, include_temps=False):
         if v["display_name"] == car:
             if v['state'] == 'asleep':
                 continue
-            v.get_vehicle_data()
+            get_vehicle_data(v, force_wake=False)
             d = v["vehicle_state"]
             s["odometer"] = d["odometer"]
             s["version"] = d["car_version"]
@@ -338,25 +354,23 @@ def sleep_check(c, car):
             s['state'] = v['state']
             s['timestamp'] = datetime.datetime.now()
             awake = v['state'] not in ('asleep', 'offline')
-            if awake:
-                v.get_vehicle_data()
-                s["soc"] = v["charge_state"]["battery_level"]
-                s["charging"] = v["charge_state"]["charging_state"]
-                s["rated_range"] = v["charge_state"]["battery_range"]
-                s["driving"] = "Driving" if v["drive_state"]["shift_state"] not in (None, 'P') else "Parked"
-                if s["charging"] != "Charging":
-                    if s["driving"] == "Driving":
-                        s["assumed_state"] = "Driving"
-                    else:
-                        s["assumed_state"] = "Idle"
-                else:
-                    s["assumed_state"] = "Charging"
-                s["is_climate_on"] = v["climate_state"]["is_climate_on"]
-                s["battery_heater_on"] = v["charge_state"]["battery_heater_on"]
-            else:
+            get_vehicle_data(v, force_wake=False)
+            s["soc"] = v["charge_state"]["battery_level"]
+            s["charging"] = v["charge_state"]["charging_state"]
+            s["rated_range"] = v["charge_state"]["battery_range"]
+            s["driving"] = "Driving" if v["drive_state"]["shift_state"] not in (None, 'P') else "Parked"
+            if not awake:
                 s["assumed_state"] = "Sleeping"
+            elif s["charging"] != "Charging":
+                if s["driving"] == "Driving":
+                    s["assumed_state"] = "Driving"
+                else:
+                    s["assumed_state"] = "Idle"
+            else:
+                s["assumed_state"] = "Charging"
+            s["is_climate_on"] = v["climate_state"]["is_climate_on"]
+            s["battery_heater_on"] = v["charge_state"]["battery_heater_on"]
 
-            log.debug(s)
             log_h = open(SLEEP_LOG_FILE, "a")
             log_h.write(f"{datetime.datetime.now(datetime.timezone.utc).astimezone()},"
                         f"{s['state']},"
@@ -446,14 +460,14 @@ def report_yesterday(data):
         kw_used = data["daily_state_am"][today_ts]["charge_energy_added"]
         if miles_driven > 200:
             m = "Yesterday I drove my #Tesla %s miles on a road trip! " \
-                "@Teslamotors #bot" % ("{:,}".format(int(miles_driven)))
+                "@Tesla #bot" % ("{:,}".format(int(miles_driven)))
         elif miles_driven == 0:
             mileage = data["daily_state_am"][today_ts]["odometer"]
             today_ym = datetime.date.today()
             start_ym = datetime.date(2014, 4, 21)
             ownership_months = int((today_ym - start_ym).days / 30)
             m = "Yesterday my #Tesla had a day off. Current mileage is %s miles after %d months " \
-                "@Teslamotors #bot" % ("{:,}".format(int(mileage)), ownership_months)
+                "@Tesla #bot" % ("{:,}".format(int(mileage)), ownership_months)
         elif data["day_charges"] == 0 or data["day_charges"] > 1:
             # Need to skip efficiency stuff here if car didnt charge last night or we charged more than once
             # TODO: Could save prior efficiency from last charge and use that
@@ -461,7 +475,7 @@ def report_yesterday(data):
             time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
             w = get_daytime_weather_data(log, time_value)
             m = "Yesterday I drove my #Tesla %s miles. Avg temp %.0fF. " \
-                "@Teslamotors #bot" \
+                "@Tesla #bot" \
                 % ("{:,}".format(int(miles_driven)), w["avg_temp"])
         else:
             # Drove a distance and charged exactly once since last report, we have enough data
@@ -475,11 +489,11 @@ def report_yesterday(data):
             # Or drive somewhere, charge at SC, then do normal charge - efficiency will look too high.
             if kw_used > 0 and efficiency > 200 and efficiency < 700:
                 m = "Yesterday I drove my #Tesla %s miles using %.1f kWh with an effic. of %d Wh/mi. Avg temp %.0fF. " \
-                    "@Teslamotors #bot" \
+                    "@Tesla #bot" \
                     % ("{:,}".format(int(miles_driven)), kw_used, efficiency, w["avg_temp"])
             else:
                 m = "Yesterday I drove my #Tesla %s miles. Avg temp %.0fF. " \
-                    "@Teslamotors #bot" % ("{:,}".format(int(miles_driven)), w["avg_temp"])
+                    "@Tesla #bot" % ("{:,}".format(int(miles_driven)), w["avg_temp"])
         pic = os.path.abspath(random.choice(get_pics()))
     return m, pic
 
@@ -497,7 +511,7 @@ def check_current_firmware_version(c, data):
     changed = False
     try:
         v = c.vehicle_list()[0]
-        v.get_vehicle_data()
+        get_vehicle_data(v, force_wake=False)
         v = v["vehicle_state"]["car_version"].split(" ")[0]
         log.debug("Found firmware version %s", v)
     except:
@@ -507,33 +521,28 @@ def check_current_firmware_version(c, data):
     ts = t.strftime("%Y%m%d")
 
     if "firmware" in data:
+        last_date = time.strptime(data["firmware"]["date_detected"], "%Y%m%d")
+        last_date = datetime.date.fromtimestamp(time.mktime(last_date))
+        time_since = (datetime.date.today() - last_date).days
+
         if data["firmware"]["version"] != v:
-            # TODO: Log new one found
             data["firmware"]["version"] = v
             data["firmware"]["date_detected"] = ts
             changed = True
+
+            message = "My 2018 S75D just found software version %s. " \
+                      "Its been %d days since the last update #bot" % (v, time_since)
         else:
-            last_date = time.strptime(data["firmware"]["date_detected"], "%Y%m%d")
-            last_date = datetime.date.fromtimestamp(time.mktime(last_date))
-            time_since = (datetime.date.today() - last_date).days
-
-            try:
-                firmware_date = time.strptime(v[:7]+".6", "%Y.%W.%w")
-            except:
-                return changed
-
-            firmware_age = (datetime.date.today() - datetime.date.fromtimestamp(time.mktime(firmware_date))).days
-
             message = "My 2018 S75D is running firmware version %s. " \
-                      "Firmware is ~%d days old. " \
-                      "%d days since last update #bot" % (v, firmware_age, time_since)
-            pic = random.choice(VERSION_IMAGES)
-            if DEBUG_MODE:
-                print("Would tweet:\n%s with pic: %s" % (message, pic))
-                log.info("DEBUG mode, not tweeting: %s with pic: %s", message, pic)
-            else:
-                log.info("Tweeting: %s with pic: %s", message, pic)
-                tweet_string(message=message, log=log, media=pic)
+                      "%d days since last update #bot" % (v, time_since)
+        pic = random.choice(VERSION_IMAGES)
+
+        if DEBUG_MODE:
+            print("Would tweet:\n%s with pic: %s" % (message, pic))
+            log.info("DEBUG mode, not tweeting: %s with pic: %s", message, pic)
+        else:
+            log.info("Tweeting: %s with pic: %s", message, pic)
+            tweet_string(message=message, log=log, media=pic)
     else:
         data["firmware"] = {}
         data["firmware"]["version"] = v
@@ -707,7 +716,9 @@ def main():
         log.debug("Checking if Tesla is plugged in")
         try:
             plugged_in = is_plugged_in(c, CAR_NAME)
-            if not plugged_in:
+            if plugged_in is None:
+                log.warning("Car sleeping and data, couldnt check plugged in state")
+            elif not plugged_in:
                 s = get_current_state(c, CAR_NAME, include_temps=False)
                 message = "Your car is not plugged in.\n\n"
                 message += "Current battery level is %d%%. (%d estimated miles)" % (s["soc"], int(s["estimated_range"]))
