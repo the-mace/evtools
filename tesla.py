@@ -94,6 +94,7 @@ CAR_NAME = os.environ['TESLA_CAR_NAME']
 PICTURES_PATH = os.path.expanduser(os.getenv('TESLA_PICTURES_PATH', "images/favorites"))
 VERSION_IMAGES = glob.glob('images/versions/*-watermark*')
 
+# Last time we poked the car in a way it could keep the car awake, stored in datetime.datetime
 last_poke = None
 
 
@@ -414,7 +415,8 @@ def load_data():
     if "charging" not in data:
         data["charging"] = False
     if "last_poke" in data:
-        last_poke = data["last_poke"]
+        last_poke = datetime.datetime.strptime(data["last_poke"],
+                                               '%Y-%m-%dT%H:%M:%S.%f')
     return data
 
 
@@ -794,9 +796,20 @@ def main():
                 time.sleep(10)
                 tries += 1
 
-    if "last_poke" not in data or last_poke != data["last_poke"]:
+    poked = False
+    if last_poke:
+        if "last_poke" not in data:
+            poked = True
+        elif "last_poke" in data:
+            if last_poke != datetime.datetime.strptime(data["last_poke"],
+                                                       '%Y-%m-%dT%H:%M:%S.%f'):
+                poked = True
+        else:
+            poked = True
+
+    if poked:
         data_changed = True
-        data["last_poke"] = last_poke
+        data["last_poke"] = last_poke.isoformat()
 
     if data_changed:
         save_data(data)
