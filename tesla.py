@@ -161,7 +161,10 @@ def get_vehicle_data(v, force_wake):
     global last_poke
     if force_wake or is_awake(v):
         # Could wake/keep car awake longer
-        time_since_last_poke = datetime.datetime.now() - last_poke
+        if last_poke:
+            time_since_last_poke = datetime.datetime.now() - last_poke
+        else:
+            time_since_last_poke = 'unknown'
         log.info(f"Car awake, getting vehicle data (time since last poke: {time_since_last_poke}")
         v.get_vehicle_data()
         last_poke = datetime.datetime.now()
