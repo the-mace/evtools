@@ -96,8 +96,10 @@ VERSION_IMAGES = glob.glob('images/versions/*-watermark*')
 
 # Last time we poked the car in a way it could keep the car awake, stored in datetime.datetime
 last_poke = None
+poked_car = False
+
 # Stop from poking too often, min time in minutes
-MIN_TIME_BETWEEN_POKES = 20
+MIN_TIME_BETWEEN_POKES = 19
 
 # Get the collection of pictures
 def get_pics():
@@ -161,6 +163,7 @@ def is_awake(v):
 
 def get_vehicle_data(v, force_wake):
     global last_poke
+    global poked_car
     poke_ok = True
     if last_poke:
         time_since_last_poke = datetime.datetime.now() - last_poke
@@ -172,7 +175,7 @@ def get_vehicle_data(v, force_wake):
         time_since_last_poke = 'unknown'
 
     do_poke = False
-    if force_wake:
+    if force_wake or poked_car:
         do_poke = True
     elif not is_awake(v):
         do_poke = True
@@ -184,6 +187,7 @@ def get_vehicle_data(v, force_wake):
         log.debug(f"Getting vehicle data (time since last poke: {time_since_last_poke})")
         v.get_vehicle_data()
         last_poke = datetime.datetime.now()
+        poked_car = True
     else:
         log.debug(f"Getting cached vehicle data (last poke: {time_since_last_poke})")
         v.get_latest_vehicle_data()
@@ -652,7 +656,7 @@ def main():
         except:
             log.warning("Couldn't dump status this pass")
 
-    elif args.dump:
+    if args.dump:
         # Dump all of Tesla API state information to disk
         log.debug("Dumping current Tesla state")
         t = datetime.date.today()
@@ -663,7 +667,7 @@ def main():
         except:
             log.warning("Couldn't get dump this pass")
 
-    elif args.fields:
+    if args.fields:
         # Check for new Tesla API fields and report if any found
         log.debug("Checking Tesla API fields")
         try:
@@ -671,7 +675,7 @@ def main():
         except:
             log.warning("Couldn't check fields this pass")
 
-    elif args.mileage:
+    if args.mileage:
         # Tweet mileage as it crosses 1,000 mile marks
         try:
             m = get_odometer(c, CAR_NAME)
@@ -686,7 +690,7 @@ def main():
             data["mileage_tweet"] = m
             data_changed = True
 
-    elif args.chargecheck:
+    if args.chargecheck:
         # Check for charges so we can correctly report daily efficiency
         try:
             m = is_charging(c, CAR_NAME)
@@ -704,7 +708,7 @@ def main():
             data["charging"] = False
             data_changed = True
 
-    elif args.state:
+    if args.state:
         # Save current Tesla state information
         log.debug("Saving Tesla state")
         retries = 3
@@ -735,7 +739,7 @@ def main():
         else:
             log.debug("Didn't poke car so state not complete")
 
-    elif args.day:
+    if args.day:
         # Show Tesla state information from a given day
         ts = args.day
         raw = ""
@@ -747,7 +751,7 @@ def main():
                 raw += "%s\t" % data["daily_state_am"][ts][i]
             print("\nRaw: %s" % raw)
 
-    elif args.report:
+    if args.report:
         # Show total and average energy added
         total_energy_added = 0
         for ts in data["daily_state_am"]:
@@ -757,7 +761,7 @@ def main():
         print("Total Energy Added: %s kW" % "{:,.2f}".format(total_energy_added))
         print("Average Energy Added: %s kW" % "{:,.2f}".format((total_energy_added / len(data["daily_state_am"]))))
 
-    elif args.export:
+    if args.export:
         # Export all saved Tesla state information
         for ts in sorted(data["daily_state_am"]):
             if ts < "20151030":
@@ -768,7 +772,7 @@ def main():
                 print("%s," % data["daily_state_am"][ts][i], end=' ')
             print("")
 
-    elif args.pluggedin:
+    if args.pluggedin:
         # Check if the Tesla is plugged in and alert if not
         log.debug("Checking if Tesla is plugged in")
         try:
@@ -787,7 +791,7 @@ def main():
         except:
             log.warning("Problem checking plugged in state")
 
-    elif args.mailtest:
+    if args.mailtest:
         # Test emailing
         log.debug("Testing email function")
         message = "Email test from tool.\n\n"
@@ -801,7 +805,7 @@ def main():
             log.exception("Problem trying to send mail")
             print("Mail send failed, see log.")
 
-    elif args.yesterday:
+    if args.yesterday:
         m, pic = report_yesterday(data)
         data["day_charges"] = 0
         data_changed = True
@@ -816,19 +820,19 @@ def main():
         else:
             log.debug("No update, skipping yesterday report")
 
-    elif args.garage:
+    if args.garage:
         # Open garage door (experimental as I dont have an AP car)
         trigger_garage_door(c, CAR_NAME)
 
-    elif args.firmware:
+    if args.firmware:
         # Check firmware version for a change
         data_changed = check_current_firmware_version(c, data)
 
-    elif args.sunroof:
+    if args.sunroof:
         # Change sunroof state
         trigger_sunroof(c, CAR_NAME, args.sunroof)
 
-    elif args.sleepcheck:
+    if args.sleepcheck:
         # Change sleeping state of tesla
         tries = 0
         while True:
