@@ -164,7 +164,7 @@ def get_vehicle_data(v, force_wake):
     poke_ok = True
     if last_poke:
         time_since_last_poke = datetime.datetime.now() - last_poke
-        if time_since_last_poke < MIN_TIME_BETWEEN_POKES:
+        if time_since_last_poke < datetime.timedelta(minutes=MIN_TIME_BETWEEN_POKES):
             poke_ok = False
     else:
         time_since_last_poke = 'unknown'
