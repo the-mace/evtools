@@ -94,6 +94,8 @@ CAR_NAME = os.environ['TESLA_CAR_NAME']
 PICTURES_PATH = os.path.expanduser(os.getenv('TESLA_PICTURES_PATH', "images/favorites"))
 VERSION_IMAGES = glob.glob('images/versions/*-watermark*')
 
+last_poke = None
+
 
 # Get the collection of pictures
 def get_pics():
@@ -156,10 +158,13 @@ def is_awake(v):
 
 
 def get_vehicle_data(v, force_wake):
+    global last_poke
     if force_wake or is_awake(v):
         # Could wake/keep car awake longer
-        log.info("Car awake, getting vehicle data")
+        time_since_last_poke = datetime.datetime.now() - last_poke
+        log.info(f"Car awake, getting vehicle data (time since last poke: {time_since_last_poke}")
         v.get_vehicle_data()
+        last_poke = datetime.datetime.now()
     else:
         log.info("Car sleeping, getting cached vehicle data")
         v.get_latest_vehicle_data()
@@ -387,6 +392,7 @@ def sleep_check(c, car):
 
 
 def load_data():
+    global last_poke
     if os.path.exists(DATA_FILE):
         log.debug("Loading existing tesla database")
         data = json.load(open(DATA_FILE, "r"))
@@ -404,6 +410,8 @@ def load_data():
         data["day_charges"] = 0
     if "charging" not in data:
         data["charging"] = False
+    if "last_poke" in data:
+        last_poke = data["last_poke"]
     return data
 
 
@@ -782,6 +790,10 @@ def main():
                     break
                 time.sleep(10)
                 tries += 1
+
+    if last_poke != data["last_poke"]:
+        data_changed = True
+        data["last_poke"] = last_poke
 
     if data_changed:
         save_data(data)
