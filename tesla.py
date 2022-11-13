@@ -648,6 +648,7 @@ def main():
         c = establish_connection()
 
     if args.status:
+        log.info("Get Status")
         # Dump current Tesla status
         try:
             print(dump_current_tesla_status(c))
@@ -656,25 +657,26 @@ def main():
 
     if args.dump:
         # Dump all of Tesla API state information to disk
-        log.debug("Dumping current Tesla state")
+        log.info("Dumping current Tesla state")
         t = datetime.date.today()
         ts = t.strftime("%Y%m%d")
         try:
             m = dump_current_tesla_status(c)
             open(os.path.join(DUMP_DIR, "tesla_state_%s.txt" % ts), "w").write(m)
         except:
-            log.warning("Couldn't get dump this pass")
+            log.info("Couldn't get dump this pass")
 
     if args.fields:
         # Check for new Tesla API fields and report if any found
-        log.debug("Checking Tesla API fields")
+        log.info("Checking Tesla API fields")
         try:
             data_changed, data = check_tesla_fields(c, data)
         except:
-            log.warning("Couldn't check fields this pass")
+            log.info("Couldn't check fields this pass")
 
     if args.mileage:
         # Tweet mileage as it crosses 1,000 mile marks
+        log.info("Get mileage")
         try:
             m = get_odometer(c, CAR_NAME)
             if "mileage_tweet" not in data:
@@ -684,10 +686,11 @@ def main():
                 data["mileage_tweet"] = m
                 data_changed = True
         except:
-            log.warning("Couldn't get odometer this pass")
+            log.info("Couldn't get odometer this pass")
 
     if args.chargecheck:
         # Check for charges so we can correctly report daily efficiency
+        log.info("Check for charges")
         try:
             m = is_charging(c, CAR_NAME)
             if not data["charging"] and m:
@@ -736,6 +739,7 @@ def main():
 
     if args.day:
         # Show Tesla state information from a given day
+        log.info("Show day info")
         ts = args.day
         raw = ""
         if ts in data["daily_state_am"]:
@@ -748,6 +752,7 @@ def main():
 
     if args.report:
         # Show total and average energy added
+        log.info("Generate report")
         total_energy_added = 0
         for ts in data["daily_state_am"]:
             if ts < "20151030":
@@ -758,6 +763,7 @@ def main():
 
     if args.export:
         # Export all saved Tesla state information
+        log.info("Export state")
         for ts in sorted(data["daily_state_am"]):
             if ts < "20151030":
                 continue
@@ -801,6 +807,7 @@ def main():
             print("Mail send failed, see log.")
 
     if args.yesterday:
+        log.info("Show yesterday info")
         m, pic = report_yesterday(data)
         data["day_charges"] = 0
         data_changed = True
@@ -817,18 +824,22 @@ def main():
 
     if args.garage:
         # Open garage door (experimental as I dont have an AP car)
+        log.info("Open Garage Door")
         trigger_garage_door(c, CAR_NAME)
 
     if args.firmware:
         # Check firmware version for a change
+        log.info("Check firmware")
         data_changed = check_current_firmware_version(c, data)
 
     if args.sunroof:
         # Change sunroof state
+        log.info("Open Sunroof")
         trigger_sunroof(c, CAR_NAME, args.sunroof)
 
     if args.sleepcheck:
         # Change sleeping state of tesla
+        log.info("Checking sleep state")
         tries = 0
         while True:
             try:
