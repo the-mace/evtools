@@ -327,8 +327,6 @@ def get_current_state(c, car, include_temps=False):
     s = {}
     for v in c.vehicle_list():
         if v["display_name"] == car:
-            if v['state'] == 'asleep':
-                continue
             get_vehicle_data(v, force_wake=False)
             d = v["vehicle_state"]
             s["odometer"] = d["odometer"]
