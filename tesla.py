@@ -182,7 +182,8 @@ def get_vehicle_data(v, force_wake):
 
     if do_poke:
         # Could wake/keep car awake longer
-        log.info(f"Getting vehicle data (time since last poke: {time_since_last_poke})")
+        if not poked_car:
+            log.info(f"Getting vehicle data (time since last poke: {time_since_last_poke})")
         v.get_vehicle_data()
         last_poke = datetime.datetime.now()
         poked_car = True
