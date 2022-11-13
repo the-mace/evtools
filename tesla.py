@@ -679,34 +679,31 @@ def main():
         # Tweet mileage as it crosses 1,000 mile marks
         try:
             m = get_odometer(c, CAR_NAME)
+            if "mileage_tweet" not in data:
+                data["mileage_tweet"] = 0
+            if int(m / 1000) > int(data["mileage_tweet"] / 1000):
+                tweet_major_mileage(int(m / 1000) * 1000)
+                data["mileage_tweet"] = m
+                data_changed = True
         except:
             log.warning("Couldn't get odometer this pass")
-            return
-
-        if "mileage_tweet" not in data:
-            data["mileage_tweet"] = 0
-        if int(m / 1000) > int(data["mileage_tweet"] / 1000):
-            tweet_major_mileage(int(m / 1000) * 1000)
-            data["mileage_tweet"] = m
-            data_changed = True
 
     if args.chargecheck:
         # Check for charges so we can correctly report daily efficiency
         try:
             m = is_charging(c, CAR_NAME)
+            if not data["charging"] and m:
+                log.debug("State change, not charging to charging")
+                data["charging"] = True
+                data["day_charges"] += 1
+                data_changed = True
+            elif data["charging"] and m is False:
+                log.debug("State change from charging to not charging")
+                data["charging"] = False
+                data_changed = True
+
         except:
             log.warning("Couldn't get charge state this pass")
-            return
-
-        if not data["charging"] and m:
-            log.debug("State change, not charging to charging")
-            data["charging"] = True
-            data["day_charges"] += 1
-            data_changed = True
-        elif data["charging"] and m is False:
-            log.debug("State change from charging to not charging")
-            data["charging"] = False
-            data_changed = True
 
     if args.state:
         # Save current Tesla state information
