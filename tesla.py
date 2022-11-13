@@ -169,7 +169,7 @@ def get_vehicle_data(v, force_wake):
         time_since_last_poke = datetime.datetime.now() - last_poke
         if not force_wake and \
                 time_since_last_poke < datetime.timedelta(minutes=MIN_TIME_BETWEEN_POKES):
-            log.debug(f"Car poked too recently, getting cached vehicle data (last poke: {time_since_last_poke})")
+            log.info(f"Car poked too recently, getting cached vehicle data (last poke: {time_since_last_poke})")
             poke_ok = False
     else:
         time_since_last_poke = 'unknown'
@@ -184,12 +184,12 @@ def get_vehicle_data(v, force_wake):
 
     if do_poke:
         # Could wake/keep car awake longer
-        log.debug(f"Getting vehicle data (time since last poke: {time_since_last_poke})")
+        log.info(f"Getting vehicle data (time since last poke: {time_since_last_poke})")
         v.get_vehicle_data()
         last_poke = datetime.datetime.now()
         poked_car = True
     else:
-        log.debug(f"Getting cached vehicle data (last poke: {time_since_last_poke})")
+        log.info(f"Getting cached vehicle data (last poke: {time_since_last_poke})")
         v.get_latest_vehicle_data()
 
 
