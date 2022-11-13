@@ -96,7 +96,8 @@ VERSION_IMAGES = glob.glob('images/versions/*-watermark*')
 
 # Last time we poked the car in a way it could keep the car awake, stored in datetime.datetime
 last_poke = None
-
+# Stop from poking too often, min time in minutes
+MIN_TIME_BETWEEN_POKES = 20
 
 # Get the collection of pictures
 def get_pics():
@@ -160,17 +161,21 @@ def is_awake(v):
 
 def get_vehicle_data(v, force_wake):
     global last_poke
-    if force_wake or is_awake(v):
+    poke_ok = True
+    if last_poke:
+        time_since_last_poke = datetime.datetime.now() - last_poke
+        if time_since_last_poke < MIN_TIME_BETWEEN_POKES:
+            poke_ok = False
+    else:
+        time_since_last_poke = 'unknown'
+
+    if poke_ok and (force_wake or is_awake(v)):
         # Could wake/keep car awake longer
-        if last_poke:
-            time_since_last_poke = datetime.datetime.now() - last_poke
-        else:
-            time_since_last_poke = 'unknown'
         log.info(f"Car awake, getting vehicle data (time since last poke: {time_since_last_poke})")
         v.get_vehicle_data()
         last_poke = datetime.datetime.now()
     else:
-        log.info("Car sleeping, getting cached vehicle data")
+        log.info("Car sleeping, getting cached vehicle data (last poke: {time_since_last_poke})")
         v.get_latest_vehicle_data()
 
 
