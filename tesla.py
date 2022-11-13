@@ -188,7 +188,6 @@ def get_vehicle_data(v, force_wake):
         last_poke = datetime.datetime.now()
         poked_car = True
     else:
-        log.info(f"Getting cached vehicle data (last poke: {time_since_last_poke} ago)")
         v.get_latest_vehicle_data()
 
 
