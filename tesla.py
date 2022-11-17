@@ -168,12 +168,14 @@ def get_vehicle_data(v, force_wake):
         time_since_last_poke = datetime.datetime.now() - last_poke
     else:
         time_since_last_poke = 'unknown'
+    offline = None
 
     do_poke = False
     if force_wake or poked_car:
         do_poke = True
     elif not is_awake(v):
         do_poke = True
+        offline = "offline "
     else:
         if time_since_last_poke != 'unknown' and \
                 time_since_last_poke < datetime.timedelta(minutes=MIN_TIME_BETWEEN_POKES):
@@ -184,10 +186,11 @@ def get_vehicle_data(v, force_wake):
     if do_poke:
         # Could wake/keep car awake longer
         if not poked_car:
-            log.info(f"Getting vehicle data (poked {time_since_last_poke} ago)")
+            log.info(f"Getting {offline}vehicle data (poked {time_since_last_poke} ago)")
         v.get_vehicle_data()
-        last_poke = datetime.datetime.now()
-        poked_car = True
+        if not offline:
+            last_poke = datetime.datetime.now()
+            poked_car = True
         vehicle_data = v
     else:
         v.get_latest_vehicle_data()
@@ -225,7 +228,16 @@ def dump_current_tesla_status(c):
             if i != 'display_name':
                 m += "   %s: %s\n" % (i, v[i])
         vehicle_data = get_vehicle_data(v, force_wake=False)
-        for s in ["vehicle_state", "charge_state", "climate_state", "drive_state", "gui_settings"]:
+        for s in [
+            "vehicle_state",
+            "charge_state",
+            "climate_state",
+            "drive_state",
+            "gui_settings",
+            "drive_state",
+            "closures_state",
+            "vehicle_config",
+        ]:
             m += "   %s:\n" % s
             d = vehicle_data[s]
             for i in d:
@@ -254,7 +266,16 @@ def check_tesla_fields(c, data):
                 data["known_fields"][i] = ts
                 data_changed = True
         vehicle_data = get_vehicle_data(v, force_wake=False)
-        for s in ["vehicle_state", "charge_state", "climate_state", "drive_state", "gui_settings"]:
+        for s in [
+            "vehicle_state",
+            "charge_state",
+            "climate_state",
+            "drive_state",
+            "gui_settings",
+            "drive_state",
+            "closures_state",
+            "vehicle_config",
+        ]:
             log.debug("Checking %s" % s)
             d = vehicle_data[s]
             for i in d:
@@ -321,7 +342,8 @@ def get_odometer(c, car):
         if v["display_name"] == car:
             vehicle_data = get_vehicle_data(v, force_wake=False)
             d = vehicle_data["vehicle_state"]
-            odometer = int(d["odometer"]) if "odometer" in d else None
+            if "odometer" in d and int(d["odometer"]):
+                odometer = int(d["odometer"])
     if odometer:
         log.info("Mileage: %s", "{:,}".format(int(odometer)))
     return odometer
