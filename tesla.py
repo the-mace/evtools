@@ -234,8 +234,6 @@ def dump_current_tesla_status(c):
             "climate_state",
             "drive_state",
             "gui_settings",
-            "drive_state",
-            "closures_state",
             "vehicle_config",
         ]:
             m += "   %s:\n" % s
@@ -274,8 +272,6 @@ def check_tesla_fields(c, data):
             "charge_state",
             "climate_state",
             "gui_settings",
-            "drive_state",
-            "closures_state",
             "vehicle_config",
         ]:
             log.debug("Checking %s" % s)
