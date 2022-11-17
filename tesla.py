@@ -703,7 +703,7 @@ def main():
 
     if args.state:
         # Save current Tesla state information
-        log.debug("Saving Tesla state")
+        log.info("Saving Tesla state")
         retries = 3
         s = None
         while retries > 0:
@@ -718,7 +718,7 @@ def main():
         if s is None:
             log.warning("   Could not fetch current state")
         elif poked_car:
-            log.debug("got current state")
+            log.info("Got current state")
             t = datetime.date.today()
             ts = t.strftime("%Y%m%d")
             hour = datetime.datetime.now().hour
@@ -726,11 +726,12 @@ def main():
                 ampm = "am"
             else:
                 ampm = "pm"
-            data["daily_state_%s" % ampm][ts] = s
-            log.debug("added to database")
+            tod = "daily_state_%s" % ampm
+            data[tod][ts] = s
+            log.info(f"Added to database in {tod}")
             data_changed = True
         else:
-            log.debug("Didn't poke car so state not complete")
+            log.info("Didn't poke car so state not complete")
 
     if args.day:
         # Show Tesla state information from a given day
