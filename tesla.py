@@ -240,7 +240,7 @@ def dump_current_tesla_status(c):
         ]:
             m += "   %s:\n" % s
             if s not in vehicle_data:
-                log.info("Didnt find {s} in vehicle data")
+                log.info(f"Didnt find {s} in vehicle data")
                 continue
             d = vehicle_data[s]
             for i in d:
@@ -280,7 +280,7 @@ def check_tesla_fields(c, data):
         ]:
             log.debug("Checking %s" % s)
             if s not in vehicle_data:
-                log.info("Didnt find {s} in vehicle data")
+                log.info(f"Didnt find {s} in vehicle data")
                 continue
             d = vehicle_data[s]
             for i in d:
