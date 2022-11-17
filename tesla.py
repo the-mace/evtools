@@ -720,7 +720,7 @@ def main():
                 ampm = "pm"
             tod = "daily_state_%s" % ampm
             data[tod][ts] = s
-            log.info(f"Added to database in {tod}")
+            log.info(f"Added to database in {tod}:{ts}")
             data_changed = True
         else:
             log.info("Didn't poke car so state not complete")
