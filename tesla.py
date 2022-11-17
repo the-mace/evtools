@@ -599,20 +599,6 @@ def check_current_firmware_version(c, data):
     return changed
 
 
-def was_car_poked(data):
-    poked = False
-    if last_poke:
-        if "last_poke" not in data:
-            poked = True
-        elif "last_poke" in data:
-            if last_poke != datetime.datetime.strptime(data["last_poke"],
-                                                       '%Y-%m-%dT%H:%M:%S.%f'):
-                poked = True
-        else:
-            poked = True
-    return poked
-
-
 def main():
     parser = argparse.ArgumentParser(description='Tesla Control')
     parser.add_argument('--status', help='Get car status', required=False, action='store_true')
@@ -731,7 +717,7 @@ def main():
                     time.sleep(30)
         if s is None:
             log.warning("   Could not fetch current state")
-        elif was_car_poked(data):
+        elif poked_car:
             log.debug("got current state")
             t = datetime.date.today()
             ts = t.strftime("%Y%m%d")
@@ -861,7 +847,7 @@ def main():
                 time.sleep(10)
                 tries += 1
 
-    if was_car_poked(data):
+    if poked_car:
         data_changed = True
         data["last_poke"] = last_poke.isoformat()
 
