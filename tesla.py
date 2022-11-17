@@ -576,7 +576,7 @@ def check_current_firmware_version(c, data):
         v = vehicle_data["car_version"].split(" ")[0]
         log.debug("Found firmware version %s", v)
     except:
-        log.warning("Problems getting firmware version")
+        log.exception("Problems getting firmware version")
         return changed
 
     t = datetime.date.today()
@@ -658,7 +658,7 @@ def main():
         try:
             print(dump_current_tesla_status(c))
         except:
-            log.warning("Couldn't dump status this pass")
+            log.exception("Couldn't dump status this pass")
 
     if args.dump:
         # Dump all of Tesla API state information to disk
@@ -669,7 +669,7 @@ def main():
             m = dump_current_tesla_status(c)
             open(os.path.join(DUMP_DIR, "tesla_state_%s.txt" % ts), "w").write(m)
         except:
-            log.info("Couldn't get dump this pass")
+            log.exception("Couldn't get dump this pass")
 
     if args.fields:
         # Check for new Tesla API fields and report if any found
@@ -677,7 +677,7 @@ def main():
         try:
             data_changed, data = check_tesla_fields(c, data)
         except:
-            log.info("Couldn't check fields this pass")
+            log.exception("Couldn't check fields this pass")
 
     if args.mileage:
         # Tweet mileage as it crosses 1,000 mile marks
@@ -713,7 +713,7 @@ def main():
                 data_changed = True
 
         except:
-            log.warning("Couldn't get charge state this pass")
+            log.exception("Couldn't get charge state this pass")
 
     if args.state:
         # Save current Tesla state information
@@ -800,7 +800,7 @@ def main():
             else:
                 log.debug("Its plugged in.")
         except:
-            log.warning("Problem checking plugged in state")
+            log.exception("Problem checking plugged in state")
 
     if args.mailtest:
         # Test emailing
