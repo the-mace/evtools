@@ -574,7 +574,10 @@ def check_current_firmware_version(c, data):
     try:
         v = c.vehicle_list()[0]
         vehicle_data = get_vehicle_data(v, force_wake=False)
-        v = vehicle_data["car_version"].split(" ")[0]
+        if "car_version" in vehicle_data["vehicle_state"]:
+            v = vehicle_data["vehicle_state"]["car_version"].split(" ")[0]
+        else:
+            return changed
         log.debug("Found firmware version %s", v)
     except:
         log.exception("Problems getting firmware version")
