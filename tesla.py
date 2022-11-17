@@ -99,7 +99,7 @@ last_poke = None
 poked_car = False
 
 # Stop from poking too often, min time in minutes
-MIN_TIME_BETWEEN_POKES = 18
+MIN_TIME_BETWEEN_POKES = 58
 
 # Get the collection of pictures
 def get_pics():
