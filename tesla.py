@@ -316,8 +316,10 @@ def get_odometer(c, car):
         if v["display_name"] == car:
             get_vehicle_data(v, force_wake=False)
             d = v["vehicle_state"]
-            odometer = int(d["odometer"])
-    log.info("Mileage: %s", "{:,}".format(int(odometer)))
+            if "odometer" in d:
+                odometer = int(d["odometer"])
+    if odometer:
+        log.info("Mileage: %s", "{:,}".format(int(odometer)))
     return odometer
 
 
@@ -352,26 +354,29 @@ def is_charging(c, car):
 
 
 def get_current_state(c, car, include_temps=False):
-    s = {}
+    s = None
     for v in c.vehicle_list():
         if v["display_name"] == car:
             get_vehicle_data(v, force_wake=False)
             d = v["vehicle_state"]
-            s["odometer"] = d["odometer"]
-            s["version"] = d["car_version"]
-            if include_temps:
-                s["inside_temp"], s["outside_temp"] = get_temps(c, car)
-            if "charge_state" in v:
-                d = v["charge_state"]
-                s["soc"] = d["battery_level"]
-                s["ideal_range"] = d["ideal_battery_range"]
-                s["rated_range"] = d["battery_range"]
-                s["estimated_range"] = d["est_battery_range"]
-                s["charge_energy_added"] = d["charge_energy_added"]
-                s["charge_miles_added_ideal"] = d["charge_miles_added_ideal"]
-                s["charge_miles_added_rated"] = d["charge_miles_added_rated"]
-            log.debug(s)
-            return s
+            if "odometer" in d:
+                s = {}
+                s["odometer"] = d["odometer"]
+                s["version"] = d["car_version"]
+                if include_temps:
+                    s["inside_temp"], s["outside_temp"] = get_temps(c, car)
+                if "charge_state" in v:
+                    d = v["charge_state"]
+                    s["soc"] = d["battery_level"]
+                    s["ideal_range"] = d["ideal_battery_range"]
+                    s["rated_range"] = d["battery_range"]
+                    s["estimated_range"] = d["est_battery_range"]
+                    s["charge_energy_added"] = d["charge_energy_added"]
+                    s["charge_miles_added_ideal"] = d["charge_miles_added_ideal"]
+                    s["charge_miles_added_rated"] = d["charge_miles_added_rated"]
+                log.debug(s)
+                break
+    return s
 
 
 def sleep_check(c, car):
@@ -677,15 +682,19 @@ def main():
     if args.mileage:
         # Tweet mileage as it crosses 1,000 mile marks
         log.info("Get mileage")
+        m = None
         try:
             m = get_odometer(c, CAR_NAME)
-            if "mileage_tweet" not in data:
-                data["mileage_tweet"] = 0
-            if int(m / 1000) > int(data["mileage_tweet"] / 1000):
-                tweet_major_mileage(int(m / 1000) * 1000)
-                data["mileage_tweet"] = m
-                data_changed = True
+            if m:
+                if "mileage_tweet" not in data:
+                    data["mileage_tweet"] = 0
+                if int(m / 1000) > int(data["mileage_tweet"] / 1000):
+                    tweet_major_mileage(int(m / 1000) * 1000)
+                    data["mileage_tweet"] = m
+                    data_changed = True
         except:
+            pass
+        if not m:
             log.info("Couldn't get odometer this pass")
 
     if args.chargecheck:
