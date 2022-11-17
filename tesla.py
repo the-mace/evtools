@@ -221,11 +221,12 @@ def dump_current_tesla_status(c):
             if i != 'display_name':
                 m += "   %s: %s\n" % (i, v[i])
         get_vehicle_data(v, force_wake=False)
-        for s in ["vehicle_state", "charge_state", "climate_state", "drive_state", "gui_settings"]:
-            m += "   %s:\n" % s
-            d = v[s]
-            for i in d:
-                m += "      %s: %s\n" % (i, d[i])
+        if "vehicle_state" in v:
+            for s in ["vehicle_state", "charge_state", "climate_state", "drive_state", "gui_settings"]:
+                m += "   %s:\n" % s
+                d = v[s]
+                for i in d:
+                    m += "      %s: %s\n" % (i, d[i])
     return m
 
 
@@ -250,15 +251,16 @@ def check_tesla_fields(c, data):
                 data["known_fields"][i] = ts
                 data_changed = True
         get_vehicle_data(v, force_wake=False)
-        for s in ["vehicle_state", "charge_state", "climate_state", "drive_state", "gui_settings"]:
-            log.debug("Checking %s" % s)
-            d = v[s]
-            for i in d:
-                if i not in data["known_fields"]:
-                    log.info("found new field %s. Value: %s", i, d[i])
-                    new_fields.append(i)
-                    data["known_fields"][i] = ts
-                    data_changed = True
+        if "vehicle_state" in v:
+            for s in ["vehicle_state", "charge_state", "climate_state", "drive_state", "gui_settings"]:
+                log.debug("Checking %s" % s)
+                d = v[s]
+                for i in d:
+                    if i not in data["known_fields"]:
+                        log.info("found new field %s. Value: %s", i, d[i])
+                        new_fields.append(i)
+                        data["known_fields"][i] = ts
+                        data_changed = True
 
     if len(new_fields) > 0:
         m = "Found %s new Tesla API fields:\n" % "{:,}".format(len(new_fields))
@@ -277,15 +279,16 @@ def get_temps(c, car):
     for v in c.vehicle_list():
         if v["display_name"] == car:
             get_vehicle_data(v, force_wake=False)
-            res = v.command("CLIMATE_ON")
-            log.info("AC start: %s", res)
-            time.sleep(5)
-            d = v["climate_state"]
-            log.info("Climate: %s", d)
-            inside_temp = 9.0 / 5.0 * d["inside_temp"] + 32
-            outside_temp = 9.0 / 5.0 * d["outside_temp"] + 32
-            res = v.command("CLIMATE_OFF")
-            log.info("AC stop: %s", res)
+            if "climate_state" in v:
+                res = v.command("CLIMATE_ON")
+                log.info("AC start: %s", res)
+                time.sleep(5)
+                d = v["climate_state"]
+                log.info("Climate: %s", d)
+                inside_temp = 9.0 / 5.0 * d["inside_temp"] + 32
+                outside_temp = 9.0 / 5.0 * d["outside_temp"] + 32
+                res = v.command("CLIMATE_OFF")
+                log.info("AC stop: %s", res)
     return inside_temp, outside_temp
 
 
@@ -315,8 +318,8 @@ def get_odometer(c, car):
     for v in c.vehicle_list():
         if v["display_name"] == car:
             get_vehicle_data(v, force_wake=False)
-            d = v["vehicle_state"]
-            if "odometer" in d:
+            if "vehicle_state" in v:
+                d = v["vehicle_state"]
                 odometer = int(d["odometer"])
     if odometer:
         log.info("Mileage: %s", "{:,}".format(int(odometer)))
@@ -358,9 +361,9 @@ def get_current_state(c, car, include_temps=False):
     for v in c.vehicle_list():
         if v["display_name"] == car:
             get_vehicle_data(v, force_wake=False)
-            d = v["vehicle_state"]
-            if "odometer" in d:
+            if "vehicle_state" in v:
                 s = {}
+                d = v["vehicle_state"]
                 s["odometer"] = d["odometer"]
                 s["version"] = d["car_version"]
                 if include_temps:
@@ -560,10 +563,14 @@ def check_current_firmware_version(c, data):
     try:
         v = c.vehicle_list()[0]
         get_vehicle_data(v, force_wake=False)
-        v = v["vehicle_state"]["car_version"].split(" ")[0]
-        log.debug("Found firmware version %s", v)
+        if "vehicle_state" in v:
+            v = v["vehicle_state"]["car_version"].split(" ")[0]
+            log.debug("Found firmware version %s", v)
+        else:
+            return changed
     except:
         log.warning("Problems getting firmware version")
+        return changed
 
     t = datetime.date.today()
     ts = t.strftime("%Y%m%d")
