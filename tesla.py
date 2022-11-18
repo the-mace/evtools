@@ -661,8 +661,8 @@ def main():
         # Dump current Tesla status
         try:
             print(dump_current_tesla_status(c))
-        except:
-            log.exception("Couldn't dump status this pass")
+        except Exception as e:
+            log.info(f"Couldn't dump status this pass: {str(e)}")
 
     if args.dump:
         # Dump all of Tesla API state information to disk
@@ -672,8 +672,8 @@ def main():
         try:
             m = dump_current_tesla_status(c)
             open(os.path.join(DUMP_DIR, "tesla_state_%s.txt" % ts), "w").write(m)
-        except:
-            log.exception("Couldn't get dump this pass")
+        except Exception as e:
+            log.info(f"Couldn't get dump this pass: {str(e)}")
 
     if args.fields:
         # Check for new Tesla API fields and report if any found
@@ -696,8 +696,8 @@ def main():
                     tweet_major_mileage(int(m / 1000) * 1000)
                     data["mileage_tweet"] = m
                     data_changed = True
-        except:
-            log.exception("Problems getting odometer")
+        except Exception as e:
+            log.info(f"Problems getting odometer: {str(e)}")
         if not m:
             log.info("Couldn't get odometer this pass")
 
@@ -715,9 +715,8 @@ def main():
                 log.debug("State change from charging to not charging")
                 data["charging"] = False
                 data_changed = True
-
-        except:
-            log.exception("Couldn't get charge state this pass")
+        except Exception as e:
+            log.info(f"Couldn't get charge state this pass: {str(e)}")
 
     if args.state:
         # Save current Tesla state information
@@ -728,10 +727,10 @@ def main():
             try:
                 s = get_current_state(c, CAR_NAME)
                 break
-            except:
+            except Exception as e:
                 retries -= 1
                 if retries > 0:
-                    log.exception("   Problem getting current state, sleeping and trying again")
+                    log.info(f"Problem getting current state, sleeping and trying again: {str(e)}")
                     time.sleep(30)
         if s is None:
             log.warning("   Could not fetch current state")
@@ -801,8 +800,8 @@ def main():
                 log.debug("Not plugged in. Emailed notice.")
             else:
                 log.debug("Its plugged in.")
-        except:
-            log.exception("Problem checking plugged in state")
+        except Exception as e:
+            log.info(f"Problem checking plugged in state: {str(e)}")
 
     if args.mailtest:
         # Test emailing
@@ -814,8 +813,8 @@ def main():
             email(email=TESLA_EMAIL, message=message, subject="Tesla Email Test")
             log.debug("Successfully sent the mail.")
             print("Mail send passed.")
-        except:
-            log.exception("Problem trying to send mail")
+        except Exception as e:
+            log.info(f"Problem trying to send mail: {str(e)}")
             print("Mail send failed, see log.")
 
     if args.yesterday:
