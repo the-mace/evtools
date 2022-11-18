@@ -857,8 +857,8 @@ def main():
             try:
                 sleep_check(c, CAR_NAME)
                 break
-            except:
-                log.exception("Error checking sleep state")
+            except Exception as e:
+                log.info(f"Error checking sleep state: {str(e)}")
                 if tries >= 3:
                     break
                 time.sleep(10)
