@@ -168,14 +168,14 @@ def get_vehicle_data(v, force_wake):
         time_since_last_poke = datetime.datetime.now() - last_poke
     else:
         time_since_last_poke = 'unknown'
-    offline = None
+    offline = False
 
     do_poke = False
     if force_wake or poked_car:
         do_poke = True
     elif not is_awake(v):
         do_poke = True
-        offline = "offline "
+        offline = True
     else:
         if time_since_last_poke != 'unknown' and \
                 time_since_last_poke < datetime.timedelta(minutes=MIN_TIME_BETWEEN_POKES):
@@ -186,7 +186,7 @@ def get_vehicle_data(v, force_wake):
     if do_poke:
         # Could wake/keep car awake longer
         if not poked_car:
-            log.info(f"Getting {offline}vehicle data (poked {time_since_last_poke} ago)")
+            log.info(f"Getting {'offline ' if offline else ''}vehicle data (poked {time_since_last_poke} ago)")
         v.get_vehicle_data()
         if not offline:
             last_poke = datetime.datetime.now()
