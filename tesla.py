@@ -410,7 +410,7 @@ def sleep_check(c, car):
             s['timestamp'] = datetime.datetime.now()
             awake = v['state'] not in ('asleep', 'offline')
             vehicle_data = get_vehicle_data(v, force_wake=False)
-            s["soc"] = vehicle_data["charge_state"]["battery_level"]
+            s["soc"] = round(vehicle_data["charge_state"]["battery_level"], 1)
             s["charging"] = vehicle_data["charge_state"]["charging_state"]
             s["rated_range"] = vehicle_data["charge_state"]["battery_range"]
             s["battery_heater_on"] = vehicle_data["charge_state"]["battery_heater_on"]
