@@ -412,7 +412,7 @@ def sleep_check(c, car):
             vehicle_data = get_vehicle_data(v, force_wake=False)
             s["soc"] = round(vehicle_data["charge_state"]["battery_level"], 1)
             s["charging"] = vehicle_data["charge_state"]["charging_state"]
-            s["rated_range"] = vehicle_data["charge_state"]["battery_range"]
+            s["rated_range"] = round(vehicle_data["charge_state"]["battery_range"], 1)
             s["battery_heater_on"] = vehicle_data["charge_state"]["battery_heater_on"]
             if "drive_state" in v:
                 s["driving"] = "Driving" if vehicle_data["drive_state"]["shift_state"] not in (None, 'P') else "Parked"
