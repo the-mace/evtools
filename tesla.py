@@ -356,10 +356,10 @@ def is_plugged_in(c, car):
         if v["display_name"] == car:
             vehicle_data = get_vehicle_data(v, force_wake=False)
             d = vehicle_data["charge_state"]
-            # charge_port_door_open and charge_port_latch have been unreliable individually
+            # charge_port_door_open and charge_port_latch arent valid for cached data polls
             charge_door_open = d["charge_port_latch"] == "Disengaged" or d["charge_port_door_open"]
             state = d["charging_state"]
-            plugged_in = charge_door_open and state != "Disconnected"
+            plugged_in = state != "Disconnected"
             log.info("Door unlatched: %s. State: %s", charge_door_open, state)
             log.info("Latch: %s Door open: %s", d["charge_port_latch"], d["charge_port_door_open"])
     return plugged_in
