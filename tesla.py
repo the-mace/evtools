@@ -515,7 +515,9 @@ def report_yesterday(data):
     if today_ts not in data["daily_state_am"] or \
             yesterday_ts not in data["daily_state_am"] or \
             'odometer' not in data["daily_state_am"][today_ts] or \
-            'odometer' not in data["daily_state_am"][yesterday_ts]:
+            'odometer' not in data["daily_state_am"][yesterday_ts] or \
+            data["daily_state_am"][today_ts]["odometer"] is None or \
+            data["daily_state_am"][yesterday_ts]["odometer"] is None:
         log.info("Skipping yesterday tweet due to missing items")
         m = None
         pic = None
