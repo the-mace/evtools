@@ -403,6 +403,7 @@ def get_current_state(c, car, include_temps=False):
 
 
 def sleep_check(c, car):
+    global poked_car, last_poke
     s = {}
     for v in c.vehicle_list():
         if v["display_name"] == car:
@@ -426,7 +427,10 @@ def sleep_check(c, car):
                 else:
                     s["assumed_state"] = "Idle"
             else:
+                # If its charging don't treat it as a poke we need to avoid doing again soon
                 s["assumed_state"] = "Charging"
+                poked_car = False
+                last_poke = None
             s["is_climate_on"] = vehicle_data["climate_state"]["is_climate_on"]
 
             log_h = open(SLEEP_LOG_FILE, "a")
