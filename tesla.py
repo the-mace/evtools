@@ -809,7 +809,9 @@ def main():
             elif not plugged_in:
                 s = get_current_state(c, CAR_NAME, include_temps=False)
                 message = "Your car is not plugged in.\n\n"
-                message += "Current battery level is %d%%. (%d estimated miles)" % (s["soc"], int(s["estimated_range"]))
+                if s["soc"]:
+                    message += "Current battery level is %d%%. " \
+                               "(%d estimated miles)" % (s["soc"], int(s["estimated_range"]))
                 message += "\n\nRegards,\nRob"
                 email(email=TESLA_EMAIL, message=message, subject="Your Tesla isn't plugged in")
                 log.debug("Not plugged in. Emailed notice.")
