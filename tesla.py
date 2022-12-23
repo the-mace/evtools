@@ -526,7 +526,15 @@ def report_yesterday(data):
         m = None
         pic = None
     else:
-        miles_driven = data["daily_state_am"][today_ts]["odometer"] - data["daily_state_am"][yesterday_ts]["odometer"]
+        miles_driven = 0
+        if data["daily_state_am"][yesterday_ts]["odometer"] and data["daily_state_am"][today_ts]["odometer"]:
+            miles_driven = data["daily_state_am"][today_ts]["odometer"] - \
+                           data["daily_state_am"][yesterday_ts]["odometer"]
+        if miles_driven == 0 or miles_driven > 2000 or miles_driven < 0:
+            log.warning(f'Something wrong with mileage: {miles_driven} '
+                        f'{data["daily_state_am"][today_ts]["odometer"]} '
+                        f'{data["daily_state_am"][yesterday_ts]["odometer"]}')
+            return None, None
         kw_used = data["daily_state_am"][today_ts]["charge_energy_added"]
         if miles_driven > 200:
             m = "Yesterday I drove my #Tesla %s miles on a road trip! " \
