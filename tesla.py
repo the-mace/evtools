@@ -511,12 +511,13 @@ def remove_lock():
 
 
 def report_yesterday(data):
-    # Report on yesterdays mileage/efficiency
+    # Report on yesterday's mileage/efficiency
     t = datetime.date.today()
     today_ts = t.strftime("%Y%m%d")
     t = t + datetime.timedelta(days=-1)
     yesterday_ts = t.strftime("%Y%m%d")
-    if today_ts not in data["daily_state_am"] or \
+    if "daily_state_am" not in data or \
+            today_ts not in data["daily_state_am"] or \
             yesterday_ts not in data["daily_state_am"] or \
             'odometer' not in data["daily_state_am"][today_ts] or \
             'odometer' not in data["daily_state_am"][yesterday_ts] or \
