@@ -516,17 +516,7 @@ def report_yesterday(data):
     today_ts = t.strftime("%Y%m%d")
     t = t + datetime.timedelta(days=-1)
     yesterday_ts = t.strftime("%Y%m%d")
-    if "daily_state_am" not in data or \
-            today_ts not in data["daily_state_am"] or \
-            yesterday_ts not in data["daily_state_am"] or \
-            'odometer' not in data["daily_state_am"][today_ts] or \
-            'odometer' not in data["daily_state_am"][yesterday_ts] or \
-            data["daily_state_am"][today_ts]["odometer"] is None or \
-            data["daily_state_am"][yesterday_ts]["odometer"] is None:
-        log.info("Skipping yesterday tweet due to missing items")
-        m = None
-        pic = None
-    else:
+    try:
         miles_driven = 0
         if data["daily_state_am"][yesterday_ts]["odometer"] and data["daily_state_am"][today_ts]["odometer"]:
             miles_driven = data["daily_state_am"][today_ts]["odometer"] - \
@@ -574,6 +564,9 @@ def report_yesterday(data):
                 m = "Yesterday I drove my #Tesla %s miles. Avg temp %.0fF. " \
                     "@Tesla #bot" % ("{:,}".format(int(miles_driven)), w["avg_temp"])
         pic = os.path.abspath(random.choice(get_pics()))
+    except:
+        m = None
+        pic = None
     return m, pic
 
 
