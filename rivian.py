@@ -251,7 +251,6 @@ def load_data():
         log.debug("loaded")
     else:
         log.debug("No existing rivian database found")
-        data = {'daily_state': {}}
     if not 'daily_state_pm' in data:
         data['daily_state_pm'] = {}
     if not 'daily_state_am' in data:
