@@ -239,7 +239,7 @@ def get_current_state(rivian, include_temps=False):
         s["inside_temp"] = get_temps(rivian)
     s["soc"] = vehicle_data['batteryLevel']['value']
     s["estimated_range"] = vehicle_data['distanceToEmpty']['value']
-    s["charging"] = vehicle_data["charge_state"]["charging_state"]
+    s["charging"] = vehicle_data["chargerStatus"]["value"] == 'chrgr_sts_connected_charging'
     log.debug(s)
     return s
 
