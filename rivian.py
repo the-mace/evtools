@@ -95,7 +95,7 @@ PICTURES_PATH = os.path.expanduser(os.getenv('RIVIAN_PICTURES_PATH', "images/riv
 VERSION_IMAGES = glob.glob('images/rivian_versions/*')
 
 # Set to true to disable tweets/data file updates
-DEBUG_MODE = 'RIVIAN_DEBUG_MODE' in os.environ
+DEBUG_MODE = os.environ.get('RIVIAN_DEBUG_MODE')
 MAX_RETRIES = 3
 RETRY_SLEEP = 10
 

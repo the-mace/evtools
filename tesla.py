@@ -111,7 +111,7 @@ def get_pics():
 
 
 # Set to true to disable tweets/data file updates
-DEBUG_MODE = 'DEBUG_MODE' in os.environ
+DEBUG_MODE = os.environ.get('TESLA_DEBUG_MODE')
 MAX_RETRIES = 3
 RETRY_SLEEP = 10
 
