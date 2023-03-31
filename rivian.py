@@ -585,7 +585,7 @@ def main():
 
     if args.pluggedin:
         # Check if the Rivian is plugged in and alert if not
-        log.debug("Checking if Rivian is plugged in")
+        log.info("Checking if Rivian is plugged in")
         try:
             plugged_in = is_plugged_in(rivian)
             if plugged_in is None:
