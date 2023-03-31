@@ -251,6 +251,7 @@ def load_data():
         log.debug("loaded")
     else:
         log.debug("No existing rivian database found")
+        data = {}
     if not 'daily_state_pm' in data:
         data['daily_state_pm'] = {}
     if not 'daily_state_am' in data:
@@ -361,18 +362,13 @@ def report_yesterday(data):
             ownership_months = int((today_ym - start_ym).days / 30)
             m = "Yesterday my #Rivian had a day off. Current mileage is %s miles after %d months " \
                 "@Rivian #bot" % ("{:,}".format(int(mileage)), ownership_months)
-        elif data["day_charges"] == 0 or data["day_charges"] > 1:
-            # Need to skip efficiency stuff here if car didnt charge last night or we charged more than once
-            # TODO: Could save prior efficiency from last charge and use that
+        else:
             day = yesterday_ts
             time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
             w = get_daytime_weather_data(log, time_value)
             m = "Yesterday I drove my #Rivian %s miles. Avg temp %.0fF. " \
                 "@Rivian #bot" \
                 % ("{:,}".format(int(miles_driven)), w["avg_temp"])
-        else:
-            m = "Yesterday I drove my #Rivian %s miles. Avg temp %.0fF. " \
-                "@Rivian #bot" % ("{:,}".format(int(miles_driven)), w["avg_temp"])
         pic = os.path.abspath(random.choice(get_pics()))
     except:
         m = None
@@ -649,7 +645,6 @@ def main():
                 break
             except Exception as e:
                 log.info(f"Error checking sleep state: {str(e)}")
-                raise
                 if tries >= 3:
                     break
                 time.sleep(10)
