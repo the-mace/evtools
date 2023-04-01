@@ -365,10 +365,13 @@ def report_yesterday(data):
         else:
             day = yesterday_ts
             time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
-            w = get_daytime_weather_data(log, time_value)
-            m = "Yesterday I drove my #Rivian %s miles. Avg temp %.0fF. " \
-                "@Rivian #bot" \
-                % ("{:,}".format(int(miles_driven)), w["avg_temp"])
+            # Darksky went away, also this wasn't location based
+            # w = get_daytime_weather_data(log, time_value)
+            # m = "Yesterday I drove my #Rivian %s miles. Avg temp %.0fF. " \
+            #     "@Rivian #bot" \
+            #     % ("{:,}".format(int(miles_driven)), w["avg_temp"])
+            m = "Yesterday I drove my #Rivian %s miles. @Rivian #bot" \
+                % ("{:,}".format(int(miles_driven)))
         pic = os.path.abspath(random.choice(get_pics()))
     except:
         m = None
@@ -535,6 +538,7 @@ def main():
                 retries -= 1
                 if retries > 0:
                     log.info(f"Problem getting current state, sleeping and trying again: {str(e)}")
+                    raise
                     time.sleep(30)
         if s is None:
             log.warning("   Could not fetch current state")
