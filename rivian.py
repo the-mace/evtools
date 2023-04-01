@@ -538,7 +538,6 @@ def main():
                 retries -= 1
                 if retries > 0:
                     log.info(f"Problem getting current state, sleeping and trying again: {str(e)}")
-                    raise
                     time.sleep(30)
         if s is None:
             log.warning("   Could not fetch current state")
