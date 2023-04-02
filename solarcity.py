@@ -159,9 +159,12 @@ def get_day_data(day=None):
         ts = datetime.datetime.combine(day, datetime.datetime.max.time()).strftime("%s")
     else:
         ts = time.time()
-    w = get_daytime_weather_data(log, ts)
-    cloud_cover = w["cloud_cover"]
-    daylight_hours = w["daylight"]
+    # Apple killed Dark Sky, weather not available
+    # w = get_daytime_weather_data(log, ts)
+    # cloud_cover = w["cloud_cover"]
+    # daylight_hours = w["daylight"]
+    cloud_cover = None
+    daylight_hours = None
 
     # If we get here everything worked, shut down the browser
     driver.quit()
@@ -197,9 +200,12 @@ def get_solarguard_day_data(day=None):
             ts = datetime.datetime.combine(day, datetime.datetime.max.time()).strftime("%s")
         else:
             ts = time.time()
-        w = get_daytime_weather_data(log, ts)
-        cloud_cover = w["cloud_cover"]
-        daylight_hours = w["daylight"]
+        # Apple killed Dark Sky, weather not available
+        # w = get_daytime_weather_data(log, ts)
+        # cloud_cover = w["cloud_cover"]
+        # daylight_hours = w["daylight"]
+        cloud_cover = None
+        daylight_hours = None
 
     return daylight_hours, cloud_cover, production
 
@@ -217,7 +223,7 @@ def tweet_production(daylight_hours, cloud_cover, production, special):
     else:
         extra = ""
 
-    if daylight_hours > 0.0:
+    if daylight_hours and daylight_hours > 0.0:
         message = "Todays @Tesla Solar Production: %s with %.1f hrs of daylight and %d%% cloud cover. %s" \
                   "#gosolar #bot %s" % \
                   (show_with_units(production), daylight_hours, cloud_cover, extra, SOLARCITY_REFERRAL)
@@ -379,35 +385,37 @@ def analyze_weather(data):
     SolarCity has had outages where they cant provide the cloud cover/weather information.
     This compares SolarCity reported weather data with other weather data.
     """
-    for day in sorted(data['data']):
-        d = data['data'][day]
-        if "weather_api" not in d:
-            time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
-            w = get_daytime_weather_data(log, time_value)
-            cloud_cover = w["cloud_cover"]
-            daylight_hours = w["daylight"]
-            if 'cloud' in d:
-                ss_cloud = d['cloud']
-            else:
-                ss_cloud = 0
-            if 'daylight' in d:
-                ss_daylight = d['daylight']
-            else:
-                ss_daylight = 0
-
-            print("%s Cloud: %d%% Daylight: %.1f (API Cloud: %d%%, Daylight: %.1f)" % (day, ss_cloud,
-                                                                                       ss_daylight, cloud_cover,
-                                                                                       daylight_hours))
-        else:
-            if 'cloud' in d:
-                cloud_cover = d['cloud']
-            else:
-                cloud_cover = 0
-            if 'daylight' in d:
-                daylight_hours = d['daylight']
-            else:
-                daylight_hours = 0
-            print("%s API Cloud: %d%% API Daylight: %.1f" % (day, cloud_cover, daylight_hours))
+    print("Apple killed Dark Sky, weather not available")
+    return
+    # for day in sorted(data['data']):
+    #     d = data['data'][day]
+    #     if "weather_api" not in d:
+    #         time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
+    #         w = get_daytime_weather_data(log, time_value)
+    #         cloud_cover = w["cloud_cover"]
+    #         daylight_hours = w["daylight"]
+    #         if 'cloud' in d:
+    #             ss_cloud = d['cloud']
+    #         else:
+    #             ss_cloud = 0
+    #         if 'daylight' in d:
+    #             ss_daylight = d['daylight']
+    #         else:
+    #             ss_daylight = 0
+    #
+    #         print("%s Cloud: %d%% Daylight: %.1f (API Cloud: %d%%, Daylight: %.1f)" % (day, ss_cloud,
+    #                                                                                    ss_daylight, cloud_cover,
+    #                                                                                    daylight_hours))
+    #     else:
+    #         if 'cloud' in d:
+    #             cloud_cover = d['cloud']
+    #         else:
+    #             cloud_cover = 0
+    #         if 'daylight' in d:
+    #             daylight_hours = d['daylight']
+    #         else:
+    #             daylight_hours = 0
+    #         print("%s API Cloud: %d%% API Daylight: %.1f" % (day, cloud_cover, daylight_hours))
 
 
 def save_data(data):
@@ -507,28 +515,30 @@ def upload_to_pvoutput(data, day):
     log.info("Report weather info to pvoutput.org for %s", day)
 
     time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
-    w = get_daytime_weather_data(log, time_value)
+    # Apple killed Dark Sky, weather not available
+    # w = get_daytime_weather_data(log, time_value)
 
     short_description = "Not Sure"
-    if "partly cloudy" in w["description"].lower():
-        short_description = "Partly Cloudy"
-    if "mostly cloudy" in w["description"].lower():
-        short_description = "Mostly Cloudy"
-    elif "snow" in w["description"].lower():
-        short_description = "Snow"
-    elif "rain" in w["description"].lower():
-        short_description = "Showers"
-    elif "clear" in w["description"].lower():
-        short_description = "Fine"
+    # if "partly cloudy" in w["description"].lower():
+    #     short_description = "Partly Cloudy"
+    # if "mostly cloudy" in w["description"].lower():
+    #     short_description = "Mostly Cloudy"
+    # elif "snow" in w["description"].lower():
+    #     short_description = "Snow"
+    # elif "rain" in w["description"].lower():
+    #     short_description = "Showers"
+    # elif "clear" in w["description"].lower():
+    #     short_description = "Fine"
 
     pvdata = {}
     pvdata["d"] = day
     pvdata["g"] = data["data"][day]["production"] * 1000
     pvdata["cd"] = short_description
-    pvdata["tm"] = "%.1f" % ((w["low_temp"] - 32) * 5.0 / 9.0)
-    pvdata["tx"] = "%.1f" % ((w["high_temp"] - 32) * 5.0 / 9.0)
-    pvdata["cm"] = "Daylight hours: %.1f, Cloud cover: %d%%" % (data["data"][day]["daylight"],
-                                                                data["data"][day]["cloud"])
+    # Apple killed Dark Sky, weather not available
+    # pvdata["tm"] = "%.1f" % ((w["low_temp"] - 32) * 5.0 / 9.0)
+    # pvdata["tx"] = "%.1f" % ((w["high_temp"] - 32) * 5.0 / 9.0)
+    # pvdata["cm"] = "Daylight hours: %.1f, Cloud cover: %d%%" % (data["data"][day]["daylight"],
+    #                                                             data["data"][day]["cloud"])
     data = urllib.parse.urlencode(pvdata)
 
     headers = {}
@@ -615,20 +625,22 @@ def main():
                 log.info("   Not last day of year, skipping. ")
 
     if args.weather is not None:
-        log.info("Check weather data")
-        if int(args.weather) == 0:
-            time_value = int(time.time())
-        else:
-            time_value = time.mktime(time.strptime("%s2100" % args.weather, "%Y%m%d%H%M"))
-        w = get_daytime_weather_data(log, time_value)
-        print("Weather as of %s:" % datetime.datetime.fromtimestamp(time_value))
-        print("   Average temperature: %.1fF" % w["avg_temp"])
-        print("   Low temperature: %.1fF" % w["low_temp"])
-        print("   Cloud Cover: %d%%" % w["cloud_cover"])
-        print("   Daylight hours: %.1f" % w["daylight"])
-        print("   Description: %s" % w["description"])
-        print("   Precipitation type: %s" % w["precip_type"])
-        print("   Precipitation Chance: %d%%" % w["precip_probability"])
+        print("Apple killed Dark Sky, weather not available")
+        return
+        # log.info("Check weather data")
+        # if int(args.weather) == 0:
+        #     time_value = int(time.time())
+        # else:
+        #     time_value = time.mktime(time.strptime("%s2100" % args.weather, "%Y%m%d%H%M"))
+        # w = get_daytime_weather_data(log, time_value)
+        # print("Weather as of %s:" % datetime.datetime.fromtimestamp(time_value))
+        # print("   Average temperature: %.1fF" % w["avg_temp"])
+        # print("   Low temperature: %.1fF" % w["low_temp"])
+        # print("   Cloud Cover: %d%%" % w["cloud_cover"])
+        # print("   Daylight hours: %.1f" % w["daylight"])
+        # print("   Description: %s" % w["description"])
+        # print("   Precipitation type: %s" % w["precip_type"])
+        # print("   Precipitation Chance: %d%%" % w["precip_probability"])
         # analyze_weather(data)
 
     if args.daily:
@@ -734,14 +746,15 @@ def main():
                     else:
                         cloud = 0
                 else:
-                    w = get_daytime_weather_data(log, time.mktime(time.strptime("%s2100" % e, "%Y%m%d%H%M")))
-                    d[e]['daylight'] = w['daylight']
-                    daylight = w['daylight']
-                    d[e]['weather_api'] = True
-                    d[e]['cloud'] = w['cloud_cover']
-                    cloud = w['cloud_cover']
-                    d[e]['weather_api'] = True
-                    data_changed = True
+                    pass
+                    # w = get_daytime_weather_data(log, time.mktime(time.strptime("%s2100" % e, "%Y%m%d%H%M")))
+                    # d[e]['daylight'] = w['daylight']
+                    # daylight = w['daylight']
+                    # d[e]['weather_api'] = True
+                    # d[e]['cloud'] = w['cloud_cover']
+                    # cloud = w['cloud_cover']
+                    # d[e]['weather_api'] = True
+                    # data_changed = True
 
                 if production is not None and daylight is not None and cloud is not None:
                     print('%s' % e, '&nbsp;&nbsp;&nbsp;&nbsp;%s&nbsp;%.1f hrs&nbsp;%d%%' % \
