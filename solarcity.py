@@ -63,7 +63,7 @@ from dateutil import parser
 from dateutil.relativedelta import relativedelta
 import calendar
 import random
-from tl_weather import get_daytime_weather_data
+# from tl_weather import get_daytime_weather_data
 import requests
 from bs4 import BeautifulSoup
 from pythonjsonlogger import jsonlogger
