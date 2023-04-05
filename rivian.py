@@ -387,12 +387,14 @@ def get_update_for_yesterday():
     return m, pic
 
 
-def check_current_firmware_version(rivian, data):
+def check_current_firmware_version(rivian, data, new):
     v = None
     changed = False
     try:
-        vehicle_data = get_vehicle_data(rivian)
-        v = vehicle_data["otaCurrentVersion"]["value"]
+        response_json = rivian.get_ota_details(vehicle_id=VEHICLE_ID)
+        vehicle_data = response_json['data']['getVehicle']
+        v = vehicle_data["availableOTAUpdateDetails"]["version"]
+        release_notes = vehicle_data["availableOTAUpdateDetails"]["url"]
         log.info("Found firmware version %s", v)
     except:
         log.exception("Problems getting firmware version")
@@ -411,8 +413,8 @@ def check_current_firmware_version(rivian, data):
             data["firmware"]["date_detected"] = ts
             changed = True
 
-            message = "My 2023 Rivian R1T just found software version %s. " \
-                      "Its been %d days since the last update #bot" % (v, time_since)
+            message = f"My 2023 Rivian R1T just found software version {v}. " \
+                      f"Its been {time_since} days since the last update #bot {release_notes}"
         else:
             message = "My 2023 Rivian R1T is running firmware version %s. " \
                       "%d days since last update #bot" % (v, time_since)
@@ -447,7 +449,8 @@ def main():
     parser.add_argument('--mailtest', help='Test emailing', required=False, action='store_true')
     parser.add_argument('--chargecheck', help='Check if car is currently charging', required=False,
                         action='store_true')
-    parser.add_argument('--firmware', help='Check for new firmware versions', required=False, action='store_true')
+    parser.add_argument('--firmware', help='Report on firmware updates', required=False, action='store_true')
+    parser.add_argument('--newfirmware', help='Check for new firmware versions', required=False, action='store_true')
     parser.add_argument('--sleepcheck', help='Monitor sleeping state of Tesla', required=False, action='store_true')
     args = parser.parse_args()
 
@@ -653,10 +656,10 @@ def main():
                 time.sleep(10)
                 tries += 1
 
-    if args.firmware:
+    if args.firmware or args.newfirmware:
         # Check firmware version for a change
         log.info("Check firmware")
-        data_changed = check_current_firmware_version(rivian, data)
+        data_changed = check_current_firmware_version(rivian, data, new=args.newfirmware)
 
     if data_changed:
         save_data(data)
