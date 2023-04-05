@@ -415,7 +415,7 @@ def check_current_firmware_version(rivian, data, new):
 
             message = f"My 2023 Rivian R1T just found software version {v}. " \
                       f"Its been {time_since} days since the last update #bot {release_notes}"
-        else:
+        elif not new:
             message = "My 2023 Rivian R1T is running firmware version %s. " \
                       "%d days since last update #bot" % (v, time_since)
         pic = random.choice(VERSION_IMAGES)
