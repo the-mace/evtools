@@ -390,6 +390,7 @@ def get_update_for_yesterday():
 def check_current_firmware_version(rivian, data, new):
     v = None
     changed = False
+    message = None
     try:
         response_json = rivian.get_ota_details(vehicle_id=VEHICLE_ID)
         vehicle_data = response_json['data']['getVehicle']
@@ -420,12 +421,13 @@ def check_current_firmware_version(rivian, data, new):
                       "%d days since last update #bot" % (v, time_since)
         pic = random.choice(VERSION_IMAGES)
 
-        if DEBUG_MODE:
-            print("Would tweet:\n%s with pic: %s" % (message, pic))
-            log.info("DEBUG mode, not tweeting: %s with pic: %s", message, pic)
-        else:
-            log.info("Tweeting: %s with pic: %s", message, pic)
-            tweet_string(message=message, log=log, media=pic)
+        if message:
+            if DEBUG_MODE:
+                print("Would tweet:\n%s with pic: %s" % (message, pic))
+                log.info("DEBUG mode, not tweeting: %s with pic: %s", message, pic)
+            else:
+                log.info("Tweeting: %s with pic: %s", message, pic)
+                tweet_string(message=message, log=log, media=pic)
     else:
         data["firmware"] = {}
         data["firmware"]["version"] = v
