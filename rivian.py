@@ -90,6 +90,9 @@ DUMP_DIR = "rivian_state_dumps"
 # Updated with your car name (API needs vehicle ID)
 VEHICLE_ID = os.environ['RIVIAN_VEHICLE_ID']
 
+# Get Discord token
+DISCORD_URL = os.environ['DISCORD_URL']
+
 # Some tweets attach pictures. They're randomly chosen from this path
 PICTURES_PATH = os.path.expanduser(os.getenv('RIVIAN_PICTURES_PATH', "images/rivian"))
 VERSION_IMAGES = glob.glob('images/rivian_versions/*')
@@ -128,6 +131,16 @@ def mail_exception(e):
         raise Exception("email issues")
     else:
         email(email=RIVIAN_EMAIL, message=message, subject="Rivian script error")
+
+
+def post_to_discord(message):
+    if DISCORD_URL:
+        data = {
+            'content': message
+        }
+        response = requests.post(DISCORD_URL, json=data)
+        if response.status_code != 204:
+            log.warning(f"Discord post error: {response.status_code}: {response.reason}")
 
 
 def restore_state(rivian):
@@ -391,12 +404,17 @@ def check_current_firmware_version(rivian, data, new):
     v = None
     changed = False
     message = None
+    discord_message = None
     try:
         response_json = rivian.get_ota_details(vehicle_id=VEHICLE_ID)
         vehicle_data = response_json['data']['getVehicle']
-        v = vehicle_data["availableOTAUpdateDetails"]["version"]
-        release_notes = vehicle_data["availableOTAUpdateDetails"]["url"]
-        log.info("Found firmware version %s", v)
+        if not vehicle_data['availableOTAUpdateDetails']:
+            v = vehicle_data["currentOTAUpdateDetails"]["version"]
+            release_notes = vehicle_data["currentOTAUpdateDetails"]["url"]
+        else:
+            v = vehicle_data["availableOTAUpdateDetails"]["version"]
+            release_notes = vehicle_data["availableOTAUpdateDetails"]["url"]
+        log.info(f"Found firmware version {v}")
     except:
         log.exception("Problems getting firmware version")
         return changed
@@ -416,6 +434,9 @@ def check_current_firmware_version(rivian, data, new):
 
             message = f"My 2023 Rivian R1T just found software version {v}. " \
                       f"Its been {time_since} days since the last update #bot {release_notes}"
+            discord_message = f"New Rivian R1T software version detected: {v}.\n" \
+                              f"Its been {time_since} days since the last update.\n" \
+                              f"Release notes: {release_notes}"
         elif not new:
             message = "My 2023 Rivian R1T is running firmware version %s. " \
                       "%d days since last update #bot" % (v, time_since)
@@ -428,6 +449,8 @@ def check_current_firmware_version(rivian, data, new):
             else:
                 log.info("Tweeting: %s with pic: %s", message, pic)
                 tweet_string(message=message, log=log, media=pic)
+                if discord_message:
+                    post_to_discord(discord_message)
     else:
         data["firmware"] = {}
         data["firmware"]["version"] = v
