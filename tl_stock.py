@@ -32,13 +32,21 @@ import os
 
 
 def get_stock_quote(stock, log):
+    """
+    https://polygon.io/docs/stocks/get_v2_aggs_ticker__stocksticker__prev
+    :param stock:
+    :param log:
+    :return:
+    """
     log.debug("Get current stock quote for %s" % stock)
-    token = os.getenv("TL_IEXAPI_TOKEN")
+    token = os.getenv("TL_POLYGON_TOKEN")
 
-    data = urllib.request.urlopen(f"https://cloud.iexapis.com/stable/stock/{stock}/quote?token={token}").read()
-    results = json.loads(data)
-    if results:
-        quote = results['latestPrice']
+    data = urllib.request.urlopen(
+        f"https://api.polygon.io/v2/aggs/ticker/{stock}/prev?adjusted=true&apiKey={token}"
+    ).read()
+    json_response = json.loads(data)
+    if json_response:
+        quote = json_response["results"][0]['c']
     else:
         quote = None
     return quote
