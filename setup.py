@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name='evtools',
-    version='1.0.0',
+    version='1.0.1',
     description='',
     url='https://github.com/the-mace/evtools',
     py_modules=['tl_tweets', 'tl_weather', 'tl_stock', 'solarcity', 'tesla', 'tl_email'],
