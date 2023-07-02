@@ -24,7 +24,9 @@ Blog: http://teslaliving.net
 Description:
 Twitter Helper Functions
 
-Dependencies: twython: https://github.com/ryanmcgrath/twython
+Dependencies:
+twython: https://github.com/ryanmcgrath/twython (most twython things no longer work as of APIv2)
+tweepy: https://github.com/tweepy/tweepy
 
 You need to get application keys for Twitter at https://apps.twitter.com
 
@@ -33,22 +35,27 @@ Provide them via environment variables:
     TL_APP_SECRET
     TL_OAUTH_TOKEN
     TL_OAUTH_TOKEN_SECRET
+    TL_BEARER_TOKEN
 
 Or via init function.
 
 Note: The logging stuff is as Twython emits a bunch of stuff during its work that I wanted to suppress
+
+NOTE: ONLY tweet_string HAS BEEN TESTING/IS WORKING WITH TWITTER API 2.0
 """
 
 import os
 import sys
+import argparse
+import glob
 import time
 import random
 import logging
-import sys
+from twython import Twython, TwythonAuthError
+import tweepy
 
 basepath = os.path.dirname(sys.argv[0])
 sys.path.append(os.path.join(basepath, 'twython'))
-from twython import Twython, TwythonAuthError
 
 
 # Initialize Twitter Keys
@@ -56,6 +63,7 @@ APP_KEY = None
 APP_SECRET = None
 OAUTH_TOKEN = None
 OAUTH_TOKEN_SECRET = None
+BEARER_TOKEN = None
 
 # Cache self ID
 MYSELF = None
@@ -72,13 +80,17 @@ if 'TL_OAUTH_TOKEN' in os.environ:
 if 'TL_OAUTH_TOKEN_SECRET' in os.environ:
     OAUTH_TOKEN_SECRET = os.environ['TL_OAUTH_TOKEN_SECRET']
 
+if 'TL_BEARER_TOKEN' in os.environ:
+    BEARER_TOKEN = os.environ['TL_BEARER_TOKEN']
 
-def init_twitter_account(app_key, app_secret, oauth_token, oauth_token_secret):
-    global APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET, MYSELF
+
+def init_twitter_account(app_key, app_secret, oauth_token, oauth_token_secret, bearer_token=None):
+    global APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET, BEARER_TOKEN, MYSELF
     APP_KEY = app_key
     APP_SECRET = app_secret
     OAUTH_TOKEN = oauth_token
     OAUTH_TOKEN_SECRET = oauth_token_secret
+    BEARER_TOKEN = bearer_token
     MYSELF = None
 
 
@@ -91,11 +103,12 @@ def check_twitter_config():
         raise Exception("OAUTH_TOKEN missing for twitter")
     if not OAUTH_TOKEN_SECRET:
         raise Exception("OAUTH_TOKEN_SECRET missing for twitter")
+    if not BEARER_TOKEN:
+        raise Exception("BEARER_TOKEN missing for twitter")
 
 
 def twitter_auth_issue(e):
-    message = "There was a problem with automated tweet operations:\n\n"
-    message += e
+    message = "There was a problem with automated tweet operations.\n\n"
     message += "\nPlease investigate."
     print(message, file=sys.stderr)
 
@@ -106,20 +119,37 @@ def tweet_string(message, log, media=None):
     old_level = log.getEffectiveLevel()
 
     log.setLevel(logging.ERROR)
-    twitter = Twython(APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET)
+    api = tweepy.Client(
+        bearer_token=BEARER_TOKEN,
+        access_token=OAUTH_TOKEN,
+        access_token_secret=OAUTH_TOKEN_SECRET,
+        consumer_key=APP_KEY,
+        consumer_secret=APP_SECRET
+    )
+
+    uploaded_media = None
+    if media:
+        auth = tweepy.OAuth1UserHandler(
+            APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET
+        )
+        oldapi = tweepy.API(auth)
+        uploaded_media = oldapi.media_upload(filename=media)
 
     retries = 0
     while retries < 2:
         log.setLevel(logging.ERROR)
         try:
-            if media:
-                photo = open(media, 'rb')
-                media_ids = twitter.upload_media(media=photo)
-                twitter.update_status(status=message.encode('utf-8').strip(), media_ids=media_ids['media_id'])
+            if uploaded_media:
+                api.create_tweet(
+                    text=message,
+                    media_ids=[uploaded_media.media_id]
+                )
             else:
-                twitter.update_status(status=message.encode('utf-8').strip())
+                api.create_tweet(
+                    text=message
+                )
             break
-        except TwythonAuthError as e:
+        except Exception as e:
             log.setLevel(old_level)
             log.exception("   Problem trying to tweet string")
             twitter_auth_issue(e)
@@ -406,3 +436,22 @@ def retweet_tweet(log, id):
             log.exception("Problem trying to retweeted tweet")
             twitter_auth_issue(e)
         raise
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Tweet testing')
+    parser.add_argument('--pic', help='Tweet a picture', required=False, action='store_true')
+    args = parser.parse_args()
+
+    if args.pic:
+        pic = random.choice(glob.glob('images/*.jpg'))
+        message = "One of my favorite pictures #bot"
+        print(f"Tweeting: '{message}' with pic: {pic}")
+        log = logging.getLogger(__name__)
+        tweet_string(message=message, log=log, media=pic)
+    else:
+        parser.print_help()
+
+
+if __name__ == '__main__':
+        main()
