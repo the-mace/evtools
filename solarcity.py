@@ -63,7 +63,7 @@ from dateutil import parser
 from dateutil.relativedelta import relativedelta
 import calendar
 import random
-# from tl_weather import get_daytime_weather_data
+from tl_weather import get_daytime_weather_data
 import requests
 from bs4 import BeautifulSoup
 from pythonjsonlogger import jsonlogger
@@ -159,12 +159,10 @@ def get_day_data(day=None):
         ts = datetime.datetime.combine(day, datetime.datetime.max.time()).strftime("%s")
     else:
         ts = time.time()
-    # Apple killed Dark Sky, weather not available
-    # w = get_daytime_weather_data(log, ts)
-    # cloud_cover = w["cloud_cover"]
-    # daylight_hours = w["daylight"]
+    ts = datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
     cloud_cover = None
-    daylight_hours = None
+    w = get_daytime_weather_data(log, ts)
+    daylight_hours = w["daylight"]
 
     # If we get here everything worked, shut down the browser
     driver.quit()
@@ -200,12 +198,11 @@ def get_solarguard_day_data(day=None):
             ts = datetime.datetime.combine(day, datetime.datetime.max.time()).strftime("%s")
         else:
             ts = time.time()
-        # Apple killed Dark Sky, weather not available
-        # w = get_daytime_weather_data(log, ts)
-        # cloud_cover = w["cloud_cover"]
-        # daylight_hours = w["daylight"]
+        ts = datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
+        w = get_daytime_weather_data(log, ts)
         cloud_cover = None
-        daylight_hours = None
+        # cloud_cover = w["cloud_cover"]
+        daylight_hours = w["daylight"]
 
     return daylight_hours, cloud_cover, production
 
@@ -515,10 +512,10 @@ def upload_to_pvoutput(data, day):
     log.info("Report weather info to pvoutput.org for %s", day)
 
     time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
-    # Apple killed Dark Sky, weather not available
-    # w = get_daytime_weather_data(log, time_value)
+    time_value = datetime.datetime.fromtimestamp(time_value).strftime("%Y-%m-%d")
+    w = get_daytime_weather_data(log, time_value)
 
-    short_description = "Not Sure"
+    short_description = w["description"]
     # if "partly cloudy" in w["description"].lower():
     #     short_description = "Partly Cloudy"
     # if "mostly cloudy" in w["description"].lower():
@@ -534,11 +531,11 @@ def upload_to_pvoutput(data, day):
     pvdata["d"] = day
     pvdata["g"] = data["data"][day]["production"] * 1000
     pvdata["cd"] = short_description
-    # Apple killed Dark Sky, weather not available
-    # pvdata["tm"] = "%.1f" % ((w["low_temp"] - 32) * 5.0 / 9.0)
-    # pvdata["tx"] = "%.1f" % ((w["high_temp"] - 32) * 5.0 / 9.0)
+    pvdata["tm"] = "%.1f" % ((w["low_temp"] - 32) * 5.0 / 9.0)
+    pvdata["tx"] = "%.1f" % ((w["high_temp"] - 32) * 5.0 / 9.0)
     # pvdata["cm"] = "Daylight hours: %.1f, Cloud cover: %d%%" % (data["data"][day]["daylight"],
     #                                                             data["data"][day]["cloud"])
+    pvdata["cm"] = "Daylight hours: %.1f" % (data["data"][day]["daylight"])
     data = urllib.parse.urlencode(pvdata)
 
     headers = {}
@@ -625,23 +622,22 @@ def main():
                 log.info("   Not last day of year, skipping. ")
 
     if args.weather is not None:
-        print("Apple killed Dark Sky, weather not available")
-        return
-        # log.info("Check weather data")
-        # if int(args.weather) == 0:
-        #     time_value = int(time.time())
-        # else:
-        #     time_value = time.mktime(time.strptime("%s2100" % args.weather, "%Y%m%d%H%M"))
-        # w = get_daytime_weather_data(log, time_value)
-        # print("Weather as of %s:" % datetime.datetime.fromtimestamp(time_value))
-        # print("   Average temperature: %.1fF" % w["avg_temp"])
-        # print("   Low temperature: %.1fF" % w["low_temp"])
+        log.info("Check weather data")
+        if int(args.weather) == 0:
+            int(time.time())
+        else:
+            time_value = time.mktime(time.strptime("%s2100" % args.weather, "%Y%m%d%H%M"))
+        time_value = datetime.datetime.fromtimestamp(time_value).strftime("%Y-%m-%d")
+        w = get_daytime_weather_data(log, time_value)
+        print("Weather as of %s:" % datetime.datetime.fromtimestamp(time_value))
+        print("   Average temperature: %.1fF" % w["avg_temp"])
+        print("   Low temperature: %.1fF" % w["low_temp"])
         # print("   Cloud Cover: %d%%" % w["cloud_cover"])
-        # print("   Daylight hours: %.1f" % w["daylight"])
-        # print("   Description: %s" % w["description"])
+        print("   Daylight hours: %.1f" % w["daylight"])
+        print("   Description: %s" % w["description"])
         # print("   Precipitation type: %s" % w["precip_type"])
         # print("   Precipitation Chance: %d%%" % w["precip_probability"])
-        # analyze_weather(data)
+        analyze_weather(data)
 
     if args.daily:
         log.info("Check for daily update")
