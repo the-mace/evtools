@@ -355,6 +355,7 @@ def report_yesterday(data):
     today_ts = t.strftime("%Y%m%d")
     t = t + datetime.timedelta(days=-1)
     yesterday_ts = t.strftime("%Y%m%d")
+    time_value = t.strftime("%Y-%m-%d")
     try:
         miles_driven = 0
         if data["daily_state_am"][yesterday_ts]["odometer"] and data["daily_state_am"][today_ts]["odometer"]:
@@ -376,15 +377,10 @@ def report_yesterday(data):
             m = "Yesterday my #Rivian had a day off. Current mileage is %s miles after %d months " \
                 "@Rivian #bot" % ("{:,}".format(int(mileage)), ownership_months)
         else:
-            day = yesterday_ts
-            time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
-            # Darksky went away, also this wasn't location based
-            # w = get_daytime_weather_data(log, time_value)
-            # m = "Yesterday I drove my #Rivian %s miles. Avg temp %.0fF. " \
-            #     "@Rivian #bot" \
-            #     % ("{:,}".format(int(miles_driven)), w["avg_temp"])
-            m = "Yesterday I drove my #Rivian %s miles. @Rivian #bot" \
-                % ("{:,}".format(int(miles_driven)))
+            w = get_daytime_weather_data(log, time_value)
+            m = "Yesterday I drove my #Rivian %s miles. Avg temp %.0fF. " \
+                "@Rivian #bot" \
+                % ("{:,}".format(int(miles_driven)), w["avg_temp"])
         pic = os.path.abspath(random.choice(get_pics()))
     except:
         m = None
