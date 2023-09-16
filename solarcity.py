@@ -160,7 +160,7 @@ def get_day_data(day=None):
     else:
         ts = time.time()
     ts = datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
-    cloud_cover = None
+    cloud_cover = 0
     w = get_daytime_weather_data(log, ts)
     daylight_hours = w["daylight"]
 
@@ -200,7 +200,7 @@ def get_solarguard_day_data(day=None):
             ts = time.time()
         ts = datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
         w = get_daytime_weather_data(log, ts)
-        cloud_cover = None
+        cloud_cover = 0
         # cloud_cover = w["cloud_cover"]
         daylight_hours = w["daylight"]
 
@@ -221,9 +221,12 @@ def tweet_production(daylight_hours, cloud_cover, production, special):
         extra = ""
 
     if daylight_hours and daylight_hours > 0.0:
-        message = "Todays @Tesla Solar Production: %s with %.1f hrs of daylight and %d%% cloud cover. %s" \
+        # message = "Todays @Tesla Solar Production: %s with %.1f hrs of daylight and %d%% cloud cover. %s" \
+        #           "#gosolar #bot %s" % \
+        #           (show_with_units(production), daylight_hours, cloud_cover, extra, SOLARCITY_REFERRAL)
+        message = "Todays @Tesla Solar Production: %s with %.1f hrs of daylight %s" \
                   "#gosolar #bot %s" % \
-                  (show_with_units(production), daylight_hours, cloud_cover, extra, SOLARCITY_REFERRAL)
+                  (show_with_units(production), daylight_hours, extra, SOLARCITY_REFERRAL)
     else:
         message = "Todays @Tesla Solar Production: %s (daylight/cloud cover not reported) %s" \
                   "#gosolar #bot %s" % \
