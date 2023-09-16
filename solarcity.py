@@ -160,8 +160,8 @@ def get_day_data(day=None):
     else:
         ts = time.time()
     ts = datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
-    cloud_cover = 0
     w = get_daytime_weather_data(log, ts)
+    cloud_cover = w['cloud_cover']
     daylight_hours = w["daylight"]
 
     # If we get here everything worked, shut down the browser
@@ -200,8 +200,7 @@ def get_solarguard_day_data(day=None):
             ts = time.time()
         ts = datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
         w = get_daytime_weather_data(log, ts)
-        cloud_cover = 0
-        # cloud_cover = w["cloud_cover"]
+        cloud_cover = w["cloud_cover"]
         daylight_hours = w["daylight"]
 
     return daylight_hours, cloud_cover, production
@@ -221,12 +220,9 @@ def tweet_production(daylight_hours, cloud_cover, production, special):
         extra = ""
 
     if daylight_hours and daylight_hours > 0.0:
-        # message = "Todays @Tesla Solar Production: %s with %.1f hrs of daylight and %d%% cloud cover. %s" \
-        #           "#gosolar #bot %s" % \
-        #           (show_with_units(production), daylight_hours, cloud_cover, extra, SOLARCITY_REFERRAL)
-        message = "Todays @Tesla Solar Production: %s with %.1f hrs of daylight %s" \
+        message = "Todays @Tesla Solar Production: %s with %.1f hrs of daylight and it was %s. %s" \
                   "#gosolar #bot %s" % \
-                  (show_with_units(production), daylight_hours, extra, SOLARCITY_REFERRAL)
+                  (show_with_units(production), daylight_hours, cloud_cover, extra, SOLARCITY_REFERRAL)
     else:
         message = "Todays @Tesla Solar Production: %s (daylight/cloud cover not reported) %s" \
                   "#gosolar #bot %s" % \
@@ -635,7 +631,7 @@ def main():
         print("Weather as of %s:" % datetime.datetime.fromtimestamp(time_value))
         print("   Average temperature: %.1fF" % w["avg_temp"])
         print("   Low temperature: %.1fF" % w["low_temp"])
-        # print("   Cloud Cover: %d%%" % w["cloud_cover"])
+        print("   Conditions: %s" % w["cloud_cover"])
         print("   Daylight hours: %.1f" % w["daylight"])
         print("   Description: %s" % w["description"])
         # print("   Precipitation type: %s" % w["precip_type"])
