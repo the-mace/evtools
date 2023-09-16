@@ -540,6 +540,7 @@ def report_yesterday(data):
     today_ts = t.strftime("%Y%m%d")
     t = t + datetime.timedelta(days=-1)
     yesterday_ts = t.strftime("%Y%m%d")
+    time_value = t.strftime("%Y-%m-%d")
     try:
         miles_driven = 0
         if data["daily_state_am"][yesterday_ts]["odometer"] and data["daily_state_am"][today_ts]["odometer"]:
@@ -565,7 +566,6 @@ def report_yesterday(data):
             # Need to skip efficiency stuff here if car didnt charge last night or we charged more than once
             # TODO: Could save prior efficiency from last charge and use that
             day = yesterday_ts
-            time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
             w = get_daytime_weather_data(log, time_value)
             m = "Yesterday I drove my #Tesla %s miles. Avg temp %.0fF. " \
                 "@Tesla #bot" \
@@ -574,7 +574,6 @@ def report_yesterday(data):
             # Drove a distance and charged exactly once since last report, we have enough data
             # to report efficiency.
             day = yesterday_ts
-            time_value = time.mktime(time.strptime("%s2100" % day, "%Y%m%d%H%M"))
             w = get_daytime_weather_data(log, time_value)
             efficiency = kw_used * 1000 / miles_driven
             # If efficiency isnt a reasonable number then don't report it.
@@ -589,6 +588,7 @@ def report_yesterday(data):
                     "@Tesla #bot" % ("{:,}".format(int(miles_driven)), w["avg_temp"])
         pic = os.path.abspath(random.choice(get_pics()))
     except:
+        log.exception("Problem reporting on yesterday's driving")
         m = None
         pic = None
     return m, pic

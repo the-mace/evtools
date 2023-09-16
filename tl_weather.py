@@ -22,9 +22,9 @@ Twitter: @Teslaliving
 Blog: http://teslaliving.net
 
 Description:
-Uses the Dark Sky API to get weather at current location
+Uses the WEATHERAPI API to get weather at current location
 
-Requires a Dark Sky API key. Visit them to get one: https://darksky.net/dev/
+Requires a WEATHERAPI API key. Visit them to get one: https://www.weatherapi.com
 Uses http://ipinfo.io to look up current location
 """
 
@@ -33,15 +33,15 @@ import urllib.request, urllib.parse, urllib.error
 import datetime
 import json
 
-DARKSKY_API_KEY = None
-DARKSKY_URL = "https://api.darksky.net/forecast/%s/%s,%s?exclude=minutely,alerts,flags"
-DARKSKY_URL_NO_TIME = "https://api.darksky.net/forecast/%s/%s?exclude=minutely,alerts,flags"
+WEATHERAPI_API_KEY = None
+WEATHERAPI_URL = "http://api.weatherapi.com/v1/history.json?key=%s&q=%s&dt=%s"
+WEATHERAPI_URL_NO_TIME = "http://api.weatherapi.com/v1/current.json?key=%s&q=%s&aqi=no"
 
-if not DARKSKY_API_KEY and 'DARKSKY_API_KEY' in os.environ:
-    DARKSKY_API_KEY = os.environ['DARKSKY_API_KEY']
+if not WEATHERAPI_API_KEY and 'WEATHERAPI_API_KEY' in os.environ:
+    WEATHERAPI_API_KEY = os.environ['WEATHERAPI_API_KEY']
 
-if not DARKSKY_API_KEY:
-    raise Exception("DARKSKY_API_KEY missing for weather data")
+if not WEATHERAPI_API_KEY:
+    raise Exception("WEATHERAPI_API_KEY missing for weather data")
 
 
 def get_daytime_weather_data(log, weather_time=None, location=None):
@@ -49,7 +49,7 @@ def get_daytime_weather_data(log, weather_time=None, location=None):
     Get average weather during daytime hours
 
     :param log: Pass in if you want log output @ debug level
-    :param weather_time: YYYYMMDD to get weather for
+    :param weather_time: YYYY-MM-DD to get weather for
     """
 
     if not location:
@@ -66,91 +66,45 @@ def get_daytime_weather_data(log, weather_time=None, location=None):
 
     # Now get the weather at this location
     weather_info = {}
+
     if weather_time:
-        fp = urllib.request.urlopen(DARKSKY_URL % (DARKSKY_API_KEY, location, int(weather_time)))
+        fp = urllib.request.urlopen(WEATHERAPI_URL % (WEATHERAPI_API_KEY, location, weather_time))
     else:
-        fp = urllib.request.urlopen(DARKSKY_URL_NO_TIME % (DARKSKY_API_KEY, location))
+        fp = urllib.request.urlopen(WEATHERAPI_URL_NO_TIME % (WEATHERAPI_API_KEY, location))
 
-    data = ""
-    # Get weather data and convert json to dict
-    while True:
-        d = fp.read()
-        if not d:
-            break
-        data += d.decode()
-
+    data = fp.read()
     try:
         weather = json.loads(data)
     except:
-        raise Exception("Can't decode Dark Sky weather data response:\n%s" % data)
+        raise Exception("Can't decode weather data response:\n%s" % data)
 
     if log:
         # Uncomment if you want to see the gory details
         pass
         # log.debug("Weather details: %s", weather)
 
-    # Now compute average cloud coverage/temperature for the day
-    cc_total = 0.0
-    cc_count = 0
-    cc_average = 0
-    temp_total = 0.0
-    temp_count = 0
-    temp_average = 0
-    low_temp = 200
-    high_temp = 0
-    cloudcover = 0
-
-    for h in weather["hourly"]["data"]:
-        # Find daytime average cloud cover
-        if "cloudCover" in h:
-            if h["time"] > weather["daily"]["data"][0]["sunriseTime"] \
-                    and h["time"] < weather["daily"]["data"][0]["sunsetTime"]:
-                cc_total += h["cloudCover"]
-                cc_count += 1
-
-        # Find daytime average temperature
-        if "temperature" in h:
-            if h["time"] > weather["daily"]["data"][0]["sunriseTime"] \
-                    and h["time"] < weather["daily"]["data"][0]["sunsetTime"]:
-                temp_total += h["temperature"]
-                temp_count += 1
-                if h["temperature"] < low_temp:
-                    low_temp = h["temperature"]
-                if h["temperature"] > high_temp:
-                    high_temp = h["temperature"]
-
-    if cc_count:
-        cc_average = (100.0 * cc_total) / cc_count
-
-    if temp_count:
-        temp_average = temp_total / temp_count
-
-    # Get total day cloud cover reported
-    if "cloudCover" in weather["daily"]["data"][0]:
-        cloudcover = weather["daily"]["data"][0]["cloudCover"] * 100
-
-    # if log:
-    #     log.debug("cloudCoverage Day: %d%%, Cloud Coverage daytime average: %d%%", cloudcover, cc_average)
-
     # Compute hours of daylight
-    daylight = (weather["daily"]["data"][0]["sunsetTime"] - weather["daily"]["data"][0]["sunriseTime"]) / 60.0 / 60.0
+    daylight = 0
+    if "forecast" in weather and "forecastday" in weather["forecast"] and \
+            "astro" in weather["forecast"]["forecastday"][0]:
+        astro = weather["forecast"]["forecastday"][0]["astro"]
+        sunrise = datetime.datetime.strptime(astro["sunrise"], '%I:%M %p')
+        sunset = datetime.datetime.strptime(astro["sunset"], '%I:%M %p')
+        daylight = (sunset - sunrise).total_seconds() / 60.0 / 60.0
 
-    # Build results
-    weather_info["cloud_cover"] = cc_average
-    weather_info["daylight"] = daylight
-    weather_info["description"] = weather["daily"]["data"][0]["summary"]
-    weather_info["avg_temp"] = temp_average
-    weather_info["low_temp"] = low_temp
-    weather_info["high_temp"] = high_temp
-    weather_info["current_temp"] = weather["currently"]["temperature"]
+    if "forecast" in weather and "forecastday" in weather["forecast"]:
+        day_weather = weather["forecast"]["forecastday"][0]["day"]
+        weather_info["cloud_cover"] = day_weather['condition']['text']
+        weather_info["daylight"] = daylight
+        weather_info["description"] = day_weather['condition']['text']
+        weather_info["avg_temp"] = day_weather['avgtemp_f']
+        weather_info["low_temp"] = day_weather['mintemp_f']
+        weather_info["high_temp"] = day_weather['maxtemp_f']
 
-    # Return precipitation probability in a useful form
-    if "precipProbability" in weather["daily"]["data"][0]:
-        weather_info["precip_probability"] = weather["daily"]["data"][0]["precipProbability"] * 100.0
-    else:
-        weather_info["precip_probability"] = 0.0
-    if "precipType" in weather["daily"]["data"][0]:
-        weather_info["precip_type"] = weather["daily"]["data"][0]["precipType"]
-    else:
-        weather_info["precip_type"] = "none"
+    if "current" in weather:
+        day_weather = weather["current"]
+        weather_info["cloud_cover"] = day_weather['condition']['text']
+        weather_info["description"] = day_weather['condition']['text']
+        weather_info["current_temp"] = day_weather["temp_f"]
+
     return weather_info
