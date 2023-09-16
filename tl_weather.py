@@ -34,8 +34,8 @@ import datetime
 import json
 
 WEATHERAPI_API_KEY = None
-WEATHERAPI_URL = "http://api.weatherapi.com/v1/history.json?key=%s&q=%s&dt=%s"
-WEATHERAPI_URL_NO_TIME = "http://api.weatherapi.com/v1/current.json?key=%s&q=%s&aqi=no"
+WEATHERAPI_URL = "https://api.weatherapi.com/v1/history.json?key=%s&q=%s&dt=%s"
+WEATHERAPI_URL_NO_TIME = "https://api.weatherapi.com/v1/current.json?key=%s&q=%s&aqi=no"
 
 if not WEATHERAPI_API_KEY and 'WEATHERAPI_API_KEY' in os.environ:
     WEATHERAPI_API_KEY = os.environ['WEATHERAPI_API_KEY']
