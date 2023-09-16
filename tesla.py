@@ -161,6 +161,15 @@ def is_awake(v):
     return v['state'] not in ('asleep', 'offline')
 
 
+def wake_vehicle(v):
+    if not is_awake(v):
+        log.info("Waking car")
+        v.sync_wake_up()
+        log.info(f"Car now awake: {is_awake(v)}")
+    else:
+        log.info("Car was already awake")
+
+
 def get_vehicle_data(v, force_wake):
     global last_poke
     global poked_car
@@ -171,6 +180,8 @@ def get_vehicle_data(v, force_wake):
     offline = False
 
     do_poke = False
+    if force_wake:
+        wake_vehicle(v)
     if force_wake or poked_car:
         do_poke = True
     elif not is_awake(v):
@@ -642,6 +653,7 @@ def main():
     parser.add_argument('--report', help='Produce summary report', required=False, action='store_true')
     parser.add_argument('--garage', help='Trigger garage door (experimental)', required=False, action='store_true')
     parser.add_argument('--sunroof', help='Control sunroof (vent, open, close)', required=False, type=str)
+    parser.add_argument('--wake', help='Wake Car', required=False, action='store_true')
     parser.add_argument('--mailtest', help='Test emailing', required=False, action='store_true')
     parser.add_argument('--chargecheck', help='Check if car is currently charging', required=False,
                         action='store_true')
@@ -665,6 +677,11 @@ def main():
     except:
         log.debug("Problems establishing connection")
         c = establish_connection()
+
+    if args.wake:
+        for v in c.vehicle_list():
+            if v["display_name"] == CAR_NAME:
+                wake_vehicle(v)
 
     if args.status:
         log.info("Get Status")
@@ -708,9 +725,11 @@ def main():
                     data_changed = True
                 t = datetime.date.today()
                 today_ts = t.strftime("%Y%m%d")
-                if today_ts in data["daily_state_am"] and \
-                        'odometer' not in data["daily_state_am"][today_ts]:
-                    # Backfill odometer for state if we get it another way
+                if today_ts in data["daily_state_am"] and (
+                        'odometer' not in data["daily_state_am"][today_ts] or
+                        not data["daily_state_am"][today_ts]['odometer']
+                ):
+                    log.info("Backfilling odometer for start of day")
                     data["daily_state_am"][today_ts]['odometer'] = m
                     data_changed = True
         except Exception as e:
