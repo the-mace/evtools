@@ -162,6 +162,8 @@ def is_awake(v):
 
 
 def wake_vehicle(v):
+    global last_poke
+    last_poke = None
     if not is_awake(v):
         log.info("Waking car")
         v.sync_wake_up()
@@ -181,6 +183,7 @@ def get_vehicle_data(v, force_wake):
 
     do_poke = False
     if force_wake:
+        do_poke = True
         wake_vehicle(v)
     if force_wake or poked_car:
         do_poke = True
@@ -204,8 +207,8 @@ def get_vehicle_data(v, force_wake):
             poked_car = True
         vehicle_data = v
     else:
-        v.get_latest_vehicle_data()
-        vehicle_data = v['data']
+        # Don't poke car so it can go to sleep, no data available
+        vehicle_data = None
     return vehicle_data
 
 
@@ -239,21 +242,22 @@ def dump_current_tesla_status(c):
             if i != 'display_name':
                 m += "   %s: %s\n" % (i, v[i])
         vehicle_data = get_vehicle_data(v, force_wake=False)
-        for s in [
-            "vehicle_state",
-            "charge_state",
-            "climate_state",
-            "drive_state",
-            "gui_settings",
-            "vehicle_config",
-        ]:
-            m += "   %s:\n" % s
-            if s not in vehicle_data:
-                log.info(f"Didnt find {s} in vehicle data")
-                continue
-            d = vehicle_data[s]
-            for i in d:
-                m += "      %s: %s\n" % (i, d[i])
+        if vehicle_data:
+            for s in [
+                "vehicle_state",
+                "charge_state",
+                "climate_state",
+                "drive_state",
+                "gui_settings",
+                "vehicle_config",
+            ]:
+                m += "   %s:\n" % s
+                if s not in vehicle_data:
+                    log.info(f"Didnt find {s} in vehicle data")
+                    continue
+                d = vehicle_data[s]
+                for i in d:
+                    m += "      %s: %s\n" % (i, d[i])
     return m
 
 
@@ -278,24 +282,25 @@ def check_tesla_fields(c, data):
                 data["known_fields"][i] = ts
                 data_changed = True
         vehicle_data = get_vehicle_data(v, force_wake=False)
-        for s in [
-            "vehicle_state",
-            "charge_state",
-            "climate_state",
-            "gui_settings",
-            "vehicle_config",
-        ]:
-            log.debug("Checking %s" % s)
-            if s not in vehicle_data:
-                log.info(f"Didnt find {s} in vehicle data")
-                continue
-            d = vehicle_data[s]
-            for i in d:
-                if i not in data["known_fields"]:
-                    log.info("found new field %s. Value: %s", i, d[i])
-                    new_fields.append(i)
-                    data["known_fields"][i] = ts
-                    data_changed = True
+        if vehicle_data:
+            for s in [
+                "vehicle_state",
+                "charge_state",
+                "climate_state",
+                "gui_settings",
+                "vehicle_config",
+            ]:
+                log.debug("Checking %s" % s)
+                if s not in vehicle_data:
+                    log.info(f"Didnt find {s} in vehicle data")
+                    continue
+                d = vehicle_data[s]
+                for i in d:
+                    if i not in data["known_fields"]:
+                        log.info("found new field %s. Value: %s", i, d[i])
+                        new_fields.append(i)
+                        data["known_fields"][i] = ts
+                        data_changed = True
 
     if len(new_fields) > 0:
         m = "Found %s new Tesla API fields:\n" % "{:,}".format(len(new_fields))
@@ -353,9 +358,11 @@ def get_odometer(c, car):
     for v in c.vehicle_list():
         if v["display_name"] == car:
             vehicle_data = get_vehicle_data(v, force_wake=False)
-            d = vehicle_data["vehicle_state"]
-            if "odometer" in d and int(d["odometer"]):
-                odometer = int(d["odometer"])
+            if vehicle_data:
+                d = vehicle_data["vehicle_state"]
+                if "odometer" in d and int(d["odometer"]):
+                    odometer = int(d["odometer"])
+            break
     if odometer:
         log.info("Mileage: %s", "{:,}".format(int(odometer)))
     return odometer
@@ -366,13 +373,15 @@ def is_plugged_in(c, car):
     for v in c.vehicle_list():
         if v["display_name"] == car:
             vehicle_data = get_vehicle_data(v, force_wake=False)
-            d = vehicle_data["charge_state"]
-            # charge_port_door_open and charge_port_latch arent valid for cached data polls
-            charge_door_open = d["charge_port_latch"] == "Disengaged" or d["charge_port_door_open"]
-            state = d["charging_state"]
-            plugged_in = state != "Disconnected"
-            log.info("Door unlatched: %s. State: %s", charge_door_open, state)
-            log.info("Latch: %s Door open: %s", d["charge_port_latch"], d["charge_port_door_open"])
+            if vehicle_data:
+                d = vehicle_data["charge_state"]
+                # charge_port_door_open and charge_port_latch arent valid for cached data polls
+                charge_door_open = d["charge_port_latch"] == "Disengaged" or d["charge_port_door_open"]
+                state = d["charging_state"]
+                plugged_in = state != "Disconnected"
+                log.info("Door unlatched: %s. State: %s", charge_door_open, state)
+                log.info("Latch: %s Door open: %s", d["charge_port_latch"], d["charge_port_door_open"])
+            break
     return plugged_in
 
 
@@ -381,11 +390,13 @@ def is_charging(c, car):
     for v in c.vehicle_list():
         if v["display_name"] == car:
             vehicle_data = get_vehicle_data(v, force_wake=False)
-            d = vehicle_data["charge_state"]
-            log.info("Charging State: %s", d["charging_state"])
-            state = d["charging_state"]
-            if state == "Charging" or state == "Complete":
-                rc = True
+            if vehicle_data:
+                d = vehicle_data["charge_state"]
+                log.info("Charging State: %s", d["charging_state"])
+                state = d["charging_state"]
+                if state == "Charging" or state == "Complete":
+                    rc = True
+            break
     return rc
 
 
@@ -394,21 +405,22 @@ def get_current_state(c, car, include_temps=False):
     for v in c.vehicle_list():
         if v["display_name"] == car:
             vehicle_data = get_vehicle_data(v, force_wake=False)
-            s = {}
-            d = vehicle_data["vehicle_state"]
-            s["odometer"] = d["odometer"] if "odometer" in d else None
-            s["version"] = d["car_version"] if "car_version" in d else None
-            if include_temps:
-                s["inside_temp"], s["outside_temp"] = get_temps(c, car)
-            d = vehicle_data["charge_state"]
-            s["soc"] = d["battery_level"] if "battery_level" in d else None
-            s["ideal_range"] = d["ideal_battery_range"] if "ideal_battery_range" in d else None
-            s["rated_range"] = d["battery_range"] if "battery_range" in d else None
-            s["estimated_range"] = d["est_battery_range"] if "est_battery_range" in d else None
-            s["charge_energy_added"] = d["charge_energy_added"] if "charge_energy_added" in d else None
-            s["charge_miles_added_ideal"] = d["charge_miles_added_ideal"] if "charge_miles_added_ideal" in d else None
-            s["charge_miles_added_rated"] = d["charge_miles_added_rated"] if "charge_miles_added_rated" in d else None
-            log.debug(s)
+            if vehicle_data:
+                s = {}
+                d = vehicle_data["vehicle_state"]
+                s["odometer"] = d["odometer"] if "odometer" in d else None
+                s["version"] = d["car_version"] if "car_version" in d else None
+                if include_temps:
+                    s["inside_temp"], s["outside_temp"] = get_temps(c, car)
+                d = vehicle_data["charge_state"]
+                s["soc"] = d["battery_level"] if "battery_level" in d else None
+                s["ideal_range"] = d["ideal_battery_range"] if "ideal_battery_range" in d else None
+                s["rated_range"] = d["battery_range"] if "battery_range" in d else None
+                s["estimated_range"] = d["est_battery_range"] if "est_battery_range" in d else None
+                s["charge_energy_added"] = d["charge_energy_added"] if "charge_energy_added" in d else None
+                s["charge_miles_added_ideal"] = d["charge_miles_added_ideal"] if "charge_miles_added_ideal" in d else None
+                s["charge_miles_added_rated"] = d["charge_miles_added_rated"] if "charge_miles_added_rated" in d else None
+                log.debug(s)
             break
     return s
 
@@ -422,42 +434,43 @@ def sleep_check(c, car):
             s['timestamp'] = datetime.datetime.now()
             awake = v['state'] not in ('asleep', 'offline')
             vehicle_data = get_vehicle_data(v, force_wake=False)
-            s["soc"] = round(vehicle_data["charge_state"]["battery_level"], 1)
-            s["charging"] = vehicle_data["charge_state"]["charging_state"]
-            s["rated_range"] = round(vehicle_data["charge_state"]["battery_range"], 1)
-            s["battery_heater_on"] = vehicle_data["charge_state"]["battery_heater_on"]
-            if "drive_state" in v:
-                s["driving"] = "Driving" if vehicle_data["drive_state"]["shift_state"] not in (None, 'P') else "Parked"
-            else:
-                s["driving"] = ''
-            if not awake:
-                s["assumed_state"] = "Sleeping"
-            elif s["charging"] != "Charging":
-                if s["driving"] == "Driving":
-                    s["assumed_state"] = "Driving"
+            if vehicle_data:
+                s["soc"] = round(vehicle_data["charge_state"]["battery_level"], 1)
+                s["charging"] = vehicle_data["charge_state"]["charging_state"]
+                s["rated_range"] = round(vehicle_data["charge_state"]["battery_range"], 1)
+                s["battery_heater_on"] = vehicle_data["charge_state"]["battery_heater_on"]
+                if "drive_state" in v:
+                    s["driving"] = "Driving" if vehicle_data["drive_state"]["shift_state"] not in (None, 'P') else "Parked"
                 else:
-                    s["assumed_state"] = "Idle"
-            else:
-                # If its charging don't treat it as a poke we need to avoid doing again soon
-                s["assumed_state"] = "Charging"
-                poked_car = False
-                last_poke = None
-            s["is_climate_on"] = vehicle_data["climate_state"]["is_climate_on"]
+                    s["driving"] = ''
+                if not awake:
+                    s["assumed_state"] = "Sleeping"
+                elif s["charging"] != "Charging":
+                    if s["driving"] == "Driving":
+                        s["assumed_state"] = "Driving"
+                    else:
+                        s["assumed_state"] = "Idle"
+                else:
+                    # If its charging don't treat it as a poke we need to avoid doing again soon
+                    s["assumed_state"] = "Charging"
+                    poked_car = False
+                    last_poke = None
+                s["is_climate_on"] = vehicle_data["climate_state"]["is_climate_on"]
 
-            log_h = open(SLEEP_LOG_FILE, "a")
-            log_h.write(f"{datetime.datetime.now(datetime.timezone.utc).astimezone()},"
-                        f"{s['state']},"
-                        f"{s['soc'] if 'soc' in s else ''},"
-                        f"{s['rated_range'] if 'rated_range' in s else ''},"
-                        f"{s['charging'] if 'charging' in s else ''},"
-                        f"{s['assumed_state'] if 'assumed_state' in s else ''},"
-                        f"{s['driving'] if 'driving' in s else ''},"
-                        f"{s['is_climate_on'] if 'is_climate_on' in s else ''},"
-                        f"{s['battery_heater_on'] if 'battery_heater_on' in s else ''},"
-                        ","
-                        f"{s['timestamp']}"
-                        "\n")
-            log.info(f"Sleep Poll: {s['assumed_state']}", extra=s)
+                log_h = open(SLEEP_LOG_FILE, "a")
+                log_h.write(f"{datetime.datetime.now(datetime.timezone.utc).astimezone()},"
+                            f"{s['state']},"
+                            f"{s['soc'] if 'soc' in s else ''},"
+                            f"{s['rated_range'] if 'rated_range' in s else ''},"
+                            f"{s['charging'] if 'charging' in s else ''},"
+                            f"{s['assumed_state'] if 'assumed_state' in s else ''},"
+                            f"{s['driving'] if 'driving' in s else ''},"
+                            f"{s['is_climate_on'] if 'is_climate_on' in s else ''},"
+                            f"{s['battery_heater_on'] if 'battery_heater_on' in s else ''},"
+                            ","
+                            f"{s['timestamp']}"
+                            "\n")
+                log.info(f"Sleep Poll: {s['assumed_state']}", extra=s)
             return s
 
 
@@ -595,11 +608,12 @@ def check_current_firmware_version(c, data):
     try:
         v = c.vehicle_list()[0]
         vehicle_data = get_vehicle_data(v, force_wake=False)
-        if "car_version" in vehicle_data["vehicle_state"]:
-            v = vehicle_data["vehicle_state"]["car_version"].split(" ")[0]
-        else:
-            return changed
-        log.debug("Found firmware version %s", v)
+        if vehicle_data:
+            if "car_version" in vehicle_data["vehicle_state"]:
+                v = vehicle_data["vehicle_state"]["car_version"].split(" ")[0]
+            else:
+                return changed
+            log.debug("Found firmware version %s", v)
     except:
         log.exception("Problems getting firmware version")
         return changed
