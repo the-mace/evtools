@@ -546,7 +546,10 @@ def report_yesterday(data):
         if data["daily_state_am"][yesterday_ts]["odometer"] and data["daily_state_am"][today_ts]["odometer"]:
             miles_driven = data["daily_state_am"][today_ts]["odometer"] - \
                            data["daily_state_am"][yesterday_ts]["odometer"]
-        if miles_driven == 0 or miles_driven > 2000 or miles_driven < 0:
+        if miles_driven == 0:
+            log.warning('No miles driven since prior day, skipping')
+            return None, None
+        elif miles_driven > 2000 or miles_driven < 0:
             log.warning(f'Something wrong with mileage: {miles_driven} '
                         f'{data["daily_state_am"][today_ts]["odometer"]} '
                         f'{data["daily_state_am"][yesterday_ts]["odometer"]}')
