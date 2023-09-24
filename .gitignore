@@ -64,3 +64,4 @@ target/
 # IDE items
 .idea/
 
+/rivian_auth.pickle
