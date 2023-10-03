@@ -1,5 +1,5 @@
 twython==3.9.1
-cryptography==39.0.1
+cryptography==41.0.4
 selenium==4.0.0
 tweepy==4.14.0
 TeslaPy==2.8.0
