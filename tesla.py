@@ -92,7 +92,8 @@ CAR_NAME = os.environ['TESLA_CAR_NAME']
 
 # Some of the tweets attach pictures. They're randomly chosen from this path
 PICTURES_PATH = os.path.expanduser(os.getenv('TESLA_PICTURES_PATH', "images/favorites"))
-VERSION_IMAGES = glob.glob('images/versions/*')
+images = glob.glob('images/versions/*')
+VERSION_IMAGES = [entry for entry in images if os.path.isfile(entry)]
 
 # Last time we poked the car in a way it could keep the car awake, stored in datetime.datetime
 last_poke = None
