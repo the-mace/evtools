@@ -472,7 +472,7 @@ def main():
                         action='store_true')
     parser.add_argument('--firmware', help='Report on firmware updates', required=False, action='store_true')
     parser.add_argument('--newfirmware', help='Check for new firmware versions', required=False, action='store_true')
-    parser.add_argument('--sleepcheck', help='Monitor sleeping state of Tesla', required=False, action='store_true')
+    parser.add_argument('--sleepcheck', help='Monitor sleeping state of Rivian', required=False, action='store_true')
     args = parser.parse_args()
 
     get_lock()
@@ -663,7 +663,7 @@ def main():
             log.debug("No update, skipping yesterday report")
 
     if args.sleepcheck:
-        # Change sleeping state of tesla
+        # Change sleeping state of rivian
         log.info("Checking sleep state")
         tries = 0
         while True:
