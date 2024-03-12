@@ -528,7 +528,7 @@ def main():
                     data["daily_state_am"][today_ts]['odometer'] = m
                     data_changed = True
         except Exception as e:
-            log.info(f"Problems getting odometer: {str(e)}")
+            log.exception(f"Problems getting odometer: {str(e)}")
         if not m:
             log.info("Couldn't get odometer this pass")
 
