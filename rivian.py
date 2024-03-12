@@ -522,8 +522,8 @@ def main():
                     data_changed = True
                 t = datetime.date.today()
                 today_ts = t.strftime("%Y%m%d")
-                if ("daily_state_am" in data and data["daily_state_am"] and
-                        today_ts in data["daily_state_am"] and
+                if (data and "daily_state_am" in data and data["daily_state_am"] and
+                        today_ts in data["daily_state_am"] and data["daily_state_am"][today_ts] and
                         'odometer' not in data["daily_state_am"][today_ts]):
                     # Backfill odometer for state if we get it another way
                     data["daily_state_am"][today_ts]['odometer'] = m
