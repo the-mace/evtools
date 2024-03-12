@@ -514,7 +514,7 @@ def main():
         try:
             m = get_odometer(rivian)
             if m:
-                if "mileage_tweet" not in data:
+                if not data or "mileage_tweet" not in data:
                     data["mileage_tweet"] = 0
                 if int(m / 1000) > int(data["mileage_tweet"] / 1000):
                     tweet_major_mileage(int(m / 1000) * 1000)
@@ -522,7 +522,7 @@ def main():
                     data_changed = True
                 t = datetime.date.today()
                 today_ts = t.strftime("%Y%m%d")
-                if today_ts in data["daily_state_am"] and \
+                if "daily_state_am" in data and today_ts in data["daily_state_am"] and \
                         'odometer' not in data["daily_state_am"][today_ts]:
                     # Backfill odometer for state if we get it another way
                     data["daily_state_am"][today_ts]['odometer'] = m
