@@ -369,7 +369,7 @@ def report_yesterday(data):
         if miles_driven > 200:
             m = "Yesterday I drove my #Rivian %s miles on a road trip! " \
                 "@Rivian #bot" % ("{:,}".format(int(miles_driven)))
-        elif miles_driven == 0:
+        elif miles_driven < 2:
             mileage = data["daily_state_am"][today_ts]["odometer"]
             today_ym = datetime.date.today()
             start_ym = datetime.date(2023, 3, 16)
