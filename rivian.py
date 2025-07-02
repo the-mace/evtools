@@ -191,7 +191,7 @@ def tweet_major_mileage(miles, get_tweet=False):
                        "a great",
                        "a wonderful"])
     message = "Just passed %s miles on my Rivian R1T! It's been %s experience. " \
-              "#Rivian #R1T @Rivian @TezLabApp #bot" % (m, a)
+              "@Rivian @TezLabApp" % (m, a)
     pic = random.choice(get_pics())
     if DEBUG_MODE:
         print("Would tweet:\n%s with pic: %s" % (message, pic))
@@ -368,18 +368,18 @@ def report_yesterday(data):
             return None, None
         if miles_driven > 200:
             m = "Yesterday I drove my #Rivian %s miles on a road trip! " \
-                "@Rivian #bot" % ("{:,}".format(int(miles_driven)))
+                "@Rivian" % ("{:,}".format(int(miles_driven)))
         elif miles_driven < 2:
             mileage = data["daily_state_am"][today_ts]["odometer"]
             today_ym = datetime.date.today()
             start_ym = datetime.date(2023, 3, 16)
             ownership_months = int((today_ym - start_ym).days / 30)
             m = "Yesterday my #Rivian had a day off. Current mileage is %s miles after %d months " \
-                "@Rivian #bot" % ("{:,}".format(int(mileage)), ownership_months)
+                "@Rivian" % ("{:,}".format(int(mileage)), ownership_months)
         else:
             w = get_daytime_weather_data(log, time_value)
             m = "Yesterday I drove my #Rivian %s miles. Avg temp %.0fF. " \
-                "@Rivian #bot" \
+                "@Rivian" \
                 % ("{:,}".format(int(miles_driven)), w["avg_temp"])
         pic = os.path.abspath(random.choice(get_pics()))
     except:
@@ -429,13 +429,13 @@ def check_current_firmware_version(rivian, data, new):
             changed = True
 
             message = f"My 2023 Rivian R1T just found software version {v}. " \
-                      f"Its been {time_since} days since the last update #bot {release_notes}"
+                      f"Its been {time_since} days since the last update {release_notes}"
             discord_message = f"New Rivian R1T software version detected: {v}.\n" \
                               f"Its been {time_since} days since the last update.\n" \
                               f"Release notes: {release_notes}"
         elif not new:
             message = "My 2023 Rivian R1T is running firmware version %s. " \
-                      "%d days since last update #bot" % (v, time_since)
+                      "%d days since last update" % (v, time_since)
         pic = random.choice(VERSION_IMAGES)
 
         if message:

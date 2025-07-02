@@ -169,7 +169,7 @@ def tweet_string(message, log, media=None):
 
 def tweet_price(price, log, stock, extra="", image=None):
     log.debug("Tweet about stock price for %s: $%s", stock, price)
-    message = "$%s current stock price: $%s. %s #bot" % (stock, price, extra)
+    message = "$%s current stock price: $%s. %s" % (stock, price, extra)
     tweet_string(message=message, log=log, media=image)
 
 
@@ -445,7 +445,7 @@ def main():
 
     if args.pic:
         pic = random.choice(glob.glob('images/*.jpg'))
-        message = "One of my favorite pictures #bot"
+        message = "One of my favorite pictures"
         print(f"Tweeting: '{message}' with pic: {pic}")
         log = logging.getLogger(__name__)
         tweet_string(message=message, log=log, media=pic)
