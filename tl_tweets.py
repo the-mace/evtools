@@ -154,7 +154,7 @@ def tweet_string(message, log, media=None):
             log.exception("   Problem trying to tweet string")
             twitter_auth_issue(e)
             return
-        except:
+        except Exception:
             log.setLevel(old_level)
             log.exception("   Problem trying to tweet string")
         retries += 1
@@ -189,7 +189,7 @@ def tweet_search(log, item, limit=50, since_id=None):
         log.setLevel(old_level)
         twitter_auth_issue(e)
         raise
-    except:
+    except Exception:
         log.setLevel(old_level)
         raise
     log.setLevel(old_level)
@@ -199,7 +199,7 @@ def tweet_search(log, item, limit=50, since_id=None):
 def check_relationship(log, id):
     my_screen_name = get_screen_name(log)
     if my_screen_name == "Unknown":
-        raise("Couldn't get my own screen name")
+        raise ValueError("Couldn't get my own screen name")
     log.debug("Checking relationship of %s with me (%s)", id, my_screen_name)
     check_twitter_config()
     logging.captureWarnings(True)
@@ -212,8 +212,6 @@ def check_relationship(log, id):
         log.setLevel(old_level)
         log.exception("   Problem trying to check relationship")
         twitter_auth_issue(e)
-        raise
-    except:
         raise
     log.setLevel(old_level)
     return result["relationship"]["source"]["following"], result["relationship"]["source"]["followed_by"]
@@ -233,7 +231,10 @@ def follow_twitter_user(log, id):
         log.exception("   Problem trying to follow twitter user")
         twitter_auth_issue(e)
         raise
-    except:
+    except Exception as e:
+        log.setLevel(old_level)
+        log.exception("Error following %s", id)
+        twitter_auth_issue(e)
         raise
     log.setLevel(old_level)
 
@@ -252,8 +253,10 @@ def unfollow_twitter_user(log, id):
         log.exception("Error unfollowing %s", id)
         twitter_auth_issue(e)
         raise
-    except:
+    except Exception as e:
         log.exception("Error unfollowing %s", id)
+        twitter_auth_issue(e)
+        raise
     log.setLevel(old_level)
 
 
@@ -350,8 +353,9 @@ def get_screen_name(log):
             log.exception("   Problem trying to get screen name")
             twitter_auth_issue(e)
             raise
-        except:
+        except Exception as e:
             log.exception("   Problem trying to get screen name")
+            twitter_auth_issue(e)
             details = None
         log.setLevel(old_level)
         name = "Unknown"
@@ -381,7 +385,10 @@ def get_following(log, id):
             log.exception("   Problem trying to get people following")
             twitter_auth_issue(e)
             raise
-        except:
+        except Exception as e:
+            log.setLevel(old_level)
+            log.exception("   Problem trying to get people following")
+            twitter_auth_issue(e)
             raise
         for u in following["users"]:
             yield u["screen_name"]
@@ -421,6 +428,7 @@ def get_followers(log, id):
     except Exception as e:
         log.setLevel(old_level)
         log.exception("Problem getting user %s", id)
+        twitter_auth_issue(e)
         raise
 
     pagination_token = None
@@ -433,6 +441,7 @@ def get_followers(log, id):
         except Exception as e:
             log.setLevel(old_level)
             log.exception("Problem getting followers for %s", id)
+            twitter_auth_issue(e)
             raise
         if response.data:
             for u in response.data:
@@ -621,4 +630,4 @@ def main():
 
 
 if __name__ == '__main__':
-        main()
+    main()
