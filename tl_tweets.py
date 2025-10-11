@@ -263,16 +263,63 @@ def get_account_details(log, id):
     logging.captureWarnings(True)
     old_level = log.getEffectiveLevel()
     log.setLevel(logging.ERROR)
-    twitter = Twython(APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET)
+    api = tweepy.Client(
+        bearer_token=BEARER_TOKEN,
+        access_token=OAUTH_TOKEN,
+        access_token_secret=OAUTH_TOKEN_SECRET,
+        consumer_key=APP_KEY,
+        consumer_secret=APP_SECRET
+    )
     try:
-        details = twitter.show_user(screen_name=id)
-    except TwythonAuthError as e:
+        user = api.get_user(username=id, user_fields=['public_metrics', 'verified', 'description'])
+        details = {
+            'screen_name': user.data.username,
+            'name': user.data.name,
+            'description': getattr(user.data, 'description', None),
+            'verified': getattr(user.data, 'verified', None),
+            'followers_count': user.data.public_metrics.get('followers_count', 0),
+            'friends_count': user.data.public_metrics.get('following_count', 0),
+            'statuses_count': user.data.public_metrics.get('tweet_count', 0),
+            'id': user.data.id
+        }
+    except tweepy.NotFound:
         log.setLevel(old_level)
-        log.exception("   Problem trying to get account details")
-        twitter_auth_issue(e)
-        raise
-    except:
         details = None
+    except Exception as e:
+        log.setLevel(old_level)
+        raise e
+    log.setLevel(old_level)
+    return details
+
+
+def get_self_details(log):
+    log.debug("Getting authenticated user details")
+    check_twitter_config()
+    logging.captureWarnings(True)
+    old_level = log.getEffectiveLevel()
+    log.setLevel(logging.ERROR)
+    api = tweepy.Client(
+        bearer_token=BEARER_TOKEN,
+        access_token=OAUTH_TOKEN,
+        access_token_secret=OAUTH_TOKEN_SECRET,
+        consumer_key=APP_KEY,
+        consumer_secret=APP_SECRET
+    )
+    try:
+        user = api.get_me(user_fields=['public_metrics', 'verified', 'description'])
+        details = {
+            'screen_name': user.data.username,
+            'name': user.data.name,
+            'description': getattr(user.data, 'description', None),
+            'verified': getattr(user.data, 'verified', None),
+            'followers_count': user.data.public_metrics.get('followers_count', 0),
+            'friends_count': user.data.public_metrics.get('following_count', 0),
+            'statuses_count': user.data.public_metrics.get('tweet_count', 0),
+            'id': user.data.id
+        }
+    except Exception as e:
+        log.setLevel(old_level)
+        raise e
     log.setLevel(old_level)
     return details
 
@@ -354,41 +401,53 @@ def get_following(log, id):
 
 
 def get_followers(log, id):
-    log.debug("Getting people following % s", id)
+    log.debug("Getting people following %s", id)
     check_twitter_config()
     logging.captureWarnings(True)
     old_level = log.getEffectiveLevel()
     log.setLevel(logging.ERROR)
-    twitter = Twython(APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET)
+    api = tweepy.Client(
+        bearer_token=BEARER_TOKEN,
+        access_token=OAUTH_TOKEN,
+        access_token_secret=OAUTH_TOKEN_SECRET,
+        consumer_key=APP_KEY,
+        consumer_secret=APP_SECRET
+    )
     log.setLevel(old_level)
 
-    cursor = -1
+    try:
+        user = api.get_user(username=id)
+        user_id = user.data.id
+    except Exception as e:
+        log.setLevel(old_level)
+        log.exception("Problem getting user %s", id)
+        raise
+
+    pagination_token = None
     max_loops = 15
-    while cursor != 0:
+    while True:
         try:
             log.setLevel(logging.ERROR)
-            following = twitter.get_followers_list(screen_name=id, cursor=cursor, count=200)
+            response = api.get_users_followers(id=user_id, max_results=1000, pagination_token=pagination_token)
             log.setLevel(old_level)
-        except TwythonAuthError as e:
-            log.exception("   Problem trying to get people following")
-            twitter_auth_issue(e)
+        except Exception as e:
+            log.setLevel(old_level)
+            log.exception("Problem getting followers for %s", id)
             raise
-        except:
-            raise
-        for u in following["users"]:
-            yield u
-        cursor = following["next_cursor"]
-        if cursor:
-            s = random.randint(55, 65)
-            log.debug("Sleeping %ds to avoid rate limit. Cursor: %s", s, cursor)
-            time.sleep(s)
+        if response.data:
+            for u in response.data:
+                yield {'screen_name': u.username}
+        if response.meta and 'next_token' in response.meta:
+            pagination_token = response.meta['next_token']
         else:
-            log.debug("Normal query end")
+            log.debug("Pagination end")
+            break
 
         max_loops -= 1
         if max_loops <= 0:
             log.debug("Killing search due to max loops")
             break
+
     log.setLevel(old_level)
 
 
@@ -441,13 +500,121 @@ def retweet_tweet(log, id):
 def main():
     parser = argparse.ArgumentParser(description='Tweet testing')
     parser.add_argument('--pic', help='Tweet a picture', required=False, action='store_true')
+    parser.add_argument('--followers', help='Get list of followers for a username', required=False)
+    parser.add_argument('--user', help='Get user details for a username', required=False)
+    parser.add_argument('--me', help='Get details for the authenticated user', required=False, action='store_true')
+    parser.add_argument('--following', help='Get list of users followed by a username', required=False)
+    parser.add_argument('--follow', help='Follow a user', required=False)
+    parser.add_argument('--unfollow', help='Unfollow a user', required=False)
+    parser.add_argument('--like', help='Like a tweet by ID', required=False)
+    parser.add_argument('--retweet', help='Retweet a tweet by ID', required=False)
+    parser.add_argument('--relationship', help='Check relationship with a user', required=False)
+    parser.add_argument('--screenname', help='Get my screen name', required=False, action='store_true')
+    parser.add_argument('--follower-count', help='Get follower count for a username', required=False)
+    parser.add_argument('--search', help='Search tweets', required=False)
     args = parser.parse_args()
 
-    if args.pic:
+    log = logging.getLogger(__name__)
+
+    if args.followers:
+        try:
+            for user in get_followers(log, args.followers):
+                print(user['screen_name'])
+        except Exception as e:
+            print(f"Error getting followers: {e}", file=sys.stderr)
+    elif args.user:
+        try:
+            details = get_account_details(log, args.user)
+            if details:
+                print(f"Username: {details.get('screen_name', 'N/A')}")
+                print(f"Name: {details.get('name', 'N/A')}")
+                print(f"Description: {details.get('description', 'N/A')}")
+                print(f"Verified: {details.get('verified', 'Unknown')}")
+                print(f"Followers: {details.get('followers_count', 'N/A')}")
+                print(f"Following: {details.get('friends_count', 'N/A')}")
+                print(f"Tweets: {details.get('statuses_count', 'N/A')}")
+            else:
+                print("User not found", file=sys.stderr)
+        except Exception as e:
+            print(f"Error getting user: {e}", file=sys.stderr)
+    elif args.me:
+        try:
+            details = get_self_details(log)
+            print(f"Username: {details.get('screen_name', 'N/A')}")
+            print(f"Name: {details.get('name', 'N/A')}")
+            print(f"Description: {details.get('description', 'N/A')}")
+            print(f"Verified: {details.get('verified', 'Unknown')}")
+            print(f"Followers: {details.get('followers_count', 'N/A')}")
+            print(f"Following: {details.get('friends_count', 'N/A')}")
+            print(f"Tweets: {details.get('statuses_count', 'N/A')}")
+        except Exception as e:
+            print(f"Error getting authenticated user: {e}", file=sys.stderr)
+    elif args.following:
+        try:
+            for screen_name in get_following(log, args.following):
+                print(screen_name)
+        except Exception as e:
+            print(f"Error getting following: {e}", file=sys.stderr)
+    elif args.follow:
+        try:
+            follow_twitter_user(log, args.follow)
+            print("Followed")
+        except Exception as e:
+            print(f"Error following user: {e}", file=sys.stderr)
+    elif args.unfollow:
+        try:
+            unfollow_twitter_user(log, args.unfollow)
+            print("Unfollowed")
+        except Exception as e:
+            print(f"Error unfollowing user: {e}", file=sys.stderr)
+    elif args.like:
+        try:
+            favorite_tweet(log, args.like)
+            print("Liked")
+        except Exception as e:
+            print(f"Error liking tweet: {e}", file=sys.stderr)
+    elif args.retweet:
+        try:
+            retweet_tweet(log, args.retweet)
+            print("Retweeted")
+        except Exception as e:
+            print(f"Error retweeting tweet: {e}", file=sys.stderr)
+    elif args.relationship:
+        try:
+            following, followed_by = check_relationship(log, args.relationship)
+            print(f"You are following {args.relationship}: {following}")
+            print(f"{args.relationship} is following you: {followed_by}")
+        except Exception as e:
+            print(f"Error checking relationship: {e}", file=sys.stderr)
+    elif args.screenname:
+        try:
+            screen_name = get_screen_name(log)
+            print(f"Your screen name: {screen_name}")
+        except Exception as e:
+            print(f"Error getting screen name: {e}", file=sys.stderr)
+    elif args.follower_count:
+        try:
+            count = get_follower_count(log, args.follower_count)
+            if count is not None:
+                print(f"Followers: {count}")
+            else:
+                print("User not found", file=sys.stderr)
+        except Exception as e:
+            print(f"Error getting follower count: {e}", file=sys.stderr)
+    elif args.search:
+        try:
+            result = tweet_search(log, args.search, limit=10)
+            if 'statuses' in result and result['statuses']:
+                for i, status in enumerate(result['statuses'][:5]):
+                    print(f"{i+1}. {status.get('text', '')[:140]}...")
+            else:
+                print("No results")
+        except Exception as e:
+            print(f"Error searching tweets: {e}", file=sys.stderr)
+    elif args.pic:
         pic = random.choice(glob.glob('images/*.jpg'))
         message = "One of my favorite pictures"
         print(f"Tweeting: '{message}' with pic: {pic}")
-        log = logging.getLogger(__name__)
         tweet_string(message=message, log=log, media=pic)
     else:
         parser.print_help()
