@@ -217,9 +217,17 @@ def get_temps(rivian):
 
 def get_odometer(rivian):
     vehicle_data = rivian.get_vehicle_state(vehicle_id=VEHICLE_ID, minimal=True)
-    odometer = float(vehicle_data['data']['vehicleState']['vehicleMileage']['value']) / 1609.0
-    if odometer:
-        log.info(f"Mileage: {int(odometer):,}")
+    odometer = None
+    try:
+        vehicle_state = vehicle_data.get('data', {}).get('vehicleState', {})
+        vehicle_mileage = vehicle_state.get('vehicleMileage')
+        if vehicle_mileage and vehicle_mileage.get('value') is not None:
+            odometer = float(vehicle_mileage['value']) / 1609.0
+            log.info(f"Mileage: {int(odometer):,}")
+        else:
+            log.warning("Vehicle mileage data not available")
+    except (KeyError, TypeError, ValueError) as e:
+        log.error(f"Error parsing odometer data: {e}")
     return odometer
 
 
@@ -404,13 +412,20 @@ def check_current_firmware_version(rivian, data, new):
     try:
         response_json = rivian.get_ota_details(vehicle_id=VEHICLE_ID)
         vehicle_data = response_json['data']['getVehicle']
-        if not vehicle_data['availableOTAUpdateDetails']:
-            v = vehicle_data["currentOTAUpdateDetails"]["version"]
-            release_notes = vehicle_data["currentOTAUpdateDetails"]["url"]
+        if not vehicle_data.get('availableOTAUpdateDetails'):
+            current_ota = vehicle_data.get("currentOTAUpdateDetails")
+            if current_ota:
+                v = current_ota.get("version")
+                release_notes = current_ota.get("url")
         else:
-            v = vehicle_data["availableOTAUpdateDetails"]["version"]
-            release_notes = vehicle_data["availableOTAUpdateDetails"]["url"]
-        log.info(f"Found firmware version {v}")
+            available_ota = vehicle_data.get("availableOTAUpdateDetails")
+            if available_ota:
+                v = available_ota.get("version")
+                release_notes = available_ota.get("url")
+        if v:
+            log.info(f"Found firmware version {v}")
+        else:
+            log.warning("No firmware version information available")
     except:
         log.exception("Problems getting firmware version")
         return changed
