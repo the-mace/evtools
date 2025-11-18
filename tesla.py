@@ -57,7 +57,6 @@ from tl_tweets import tweet_string
 from tl_email import email
 from tl_weather import get_daytime_weather_data
 import glob
-from pythonjsonlogger import jsonlogger
 import teslapy
 from selenium import webdriver
 from selenium.webdriver.support import expected_conditions as EC
@@ -73,7 +72,6 @@ DEF_FRMT = "%(asctime)s : %(levelname)-8s : %(funcName)-25s:%(lineno)-4s: %(mess
 loghandler1 = RotatingFileHandler(LOGFILE, maxBytes=5 * 1024 * 1024, backupCount=8)
 loghandler2 = RotatingFileHandler(LOGFILE + '.json', maxBytes=5 * 1024 * 1024, backupCount=8)
 loghandler1.setFormatter(logging.Formatter(DEF_FRMT))
-loghandler2.setFormatter(jsonlogger.JsonFormatter())
 log.addHandler(loghandler1)
 log.addHandler(loghandler2)
 log.setLevel(loglevel)
