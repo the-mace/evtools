@@ -65,3 +65,4 @@ target/
 .idea/
 
 /rivian_auth.pickle
+cache.json
