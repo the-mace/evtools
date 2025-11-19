@@ -404,6 +404,7 @@ def get_update_for_yesterday():
 
 def check_current_firmware_version(rivian, data, new):
     v = None
+    release_notes = None
     changed = False
     message = None
     discord_message = None
