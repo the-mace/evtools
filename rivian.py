@@ -726,6 +726,13 @@ if __name__ == '__main__':
                     mail_exception(traceback.format_exc())
                 break
         except Exception as e:
+            # Check for transient errors that should be logged but not emailed
+            error_str = str(e)
+            if '502' in error_str or 'Bad Gateway' in error_str or '503' in error_str or 'Service Unavailable' in error_str:
+                log.warning("Transient error (502/503): %s", error_str)
+                log.info("Suppressing email notification for transient error")
+                remove_lock()
+                break
             if DEBUG_MODE:
                 raise
             else:
