@@ -113,6 +113,22 @@ def twitter_auth_issue(e):
     print(message, file=sys.stderr)
 
 
+def is_transient_twitter_error(e):
+    """Check if a Twitter API error is transient and should be retried."""
+    error_str = str(e)
+    transient_patterns = [
+        'timeout', 'timed out', 'TimeoutError',
+        'Connection aborted', 'ConnectionError', 'Connection refused',
+        '502', 'Bad Gateway',
+        '503', 'Service Unavailable',
+        '504', 'Gateway Timeout',
+        '408', 'Request Timeout',
+        'Failed to send request',
+        'write operation timed out'
+    ]
+    return any(pattern.lower() in error_str.lower() for pattern in transient_patterns)
+
+
 def tweet_string(message, log, media=None):
     check_twitter_config()
     logging.captureWarnings(True)
@@ -127,18 +143,20 @@ def tweet_string(message, log, media=None):
         consumer_secret=APP_SECRET
     )
 
-    uploaded_media = None
-    if media:
-        auth = tweepy.OAuth1UserHandler(
-            APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET
-        )
-        oldapi = tweepy.API(auth)
-        uploaded_media = oldapi.media_upload(filename=media)
+    max_retries = 3
+    base_sleep = 5
 
-    retries = 0
-    while retries < 2:
-        log.setLevel(logging.ERROR)
+    for attempt in range(max_retries):
         try:
+            uploaded_media = None
+            if media:
+                auth = tweepy.OAuth1UserHandler(
+                    APP_KEY, APP_SECRET, OAUTH_TOKEN, OAUTH_TOKEN_SECRET
+                )
+                oldapi = tweepy.API(auth)
+                uploaded_media = oldapi.media_upload(filename=media)
+
+            log.setLevel(logging.ERROR)
             if uploaded_media:
                 api.create_tweet(
                     text=message,
@@ -148,23 +166,31 @@ def tweet_string(message, log, media=None):
                 api.create_tweet(
                     text=message
                 )
-            break
+            log.setLevel(old_level)
+            log.info("Tweet posted successfully")
+            return
         except Exception as e:
             log.setLevel(old_level)
-            log.exception("   Problem trying to tweet string")
-            twitter_auth_issue(e)
-            return
-        except Exception:
-            log.setLevel(old_level)
-            log.exception("   Problem trying to tweet string")
-        retries += 1
-        s = random.randrange(5, 10 * retries)
-        log.debug("sleeping %d seconds for retry", s)
-        time.sleep(s)
 
-    log.setLevel(old_level)
-    if retries == 5:
-        log.error("Couldn't tweet string: %s with media: %s", message, media)
+            # Check if this is a transient error
+            if is_transient_twitter_error(e):
+                if attempt < max_retries - 1:
+                    sleep_time = base_sleep * (2 ** attempt)
+                    log.warning("Transient Twitter error (attempt %d/%d): %s",
+                               attempt + 1, max_retries, str(e)[:200])
+                    log.info("Retrying in %d seconds...", sleep_time)
+                    time.sleep(sleep_time)
+                else:
+                    # Max retries reached
+                    log.error("Max retries reached for transient Twitter error: %s", str(e)[:200])
+                    log.exception("Failed to tweet after %d attempts", max_retries)
+                    raise
+            else:
+                # Non-transient error - don't retry
+                log.error("Non-transient Twitter error: %s", str(e)[:200])
+                log.exception("Problem trying to tweet string")
+                twitter_auth_issue(e)
+                raise
 
 
 def tweet_price(price, log, stock, extra="", image=None):

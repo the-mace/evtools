@@ -112,7 +112,7 @@ def get_pics():
 # Set to true to disable tweets/data file updates
 DEBUG_MODE = int(os.environ.get('TESLA_DEBUG_MODE'))
 MAX_RETRIES = 3
-RETRY_SLEEP = 10
+RETRY_SLEEP_BASE = 10  # Base sleep time for exponential backoff
 
 # Get Teslamotors.com login information from environment
 TESLA_EMAIL = None
@@ -123,6 +123,22 @@ if 'TESLA_EMAIL' in os.environ:
 
 if not TESLA_EMAIL:
     raise Exception("Missing Tesla login information")
+
+
+def is_transient_error(e):
+    """Check if an error is transient and should be retried."""
+    error_str = str(e)
+    # Check for common transient error patterns
+    transient_patterns = [
+        'timeout', 'timed out', 'TimeoutError',
+        'Connection aborted', 'ConnectionError', 'Connection refused',
+        '502', 'Bad Gateway',
+        '503', 'Service Unavailable',
+        '504', 'Gateway Timeout',
+        '408', 'Request Timeout',
+        'Failed to send request'
+    ]
+    return any(pattern.lower() in error_str.lower() for pattern in transient_patterns)
 
 
 def mail_exception(e):
@@ -929,6 +945,7 @@ def main():
 
 
 if __name__ == '__main__':
+    last_exception = None
     for retry in range(MAX_RETRIES):
         try:
             main()
@@ -936,22 +953,51 @@ if __name__ == '__main__':
         except SystemExit:
             break
         except HTTPError as e:
+            last_exception = e
             if e.code >= 500 or e.code == 408:
-                log.warning("Transient error from Tesla API: %d", e.code)
-                log.info("Retrying again in %d seconds", RETRY_SLEEP)
-                time.sleep(RETRY_SLEEP)
-
-                # Unlock and retry
-                remove_lock()
+                # Transient HTTP error - retry with exponential backoff
+                sleep_time = RETRY_SLEEP_BASE * (2 ** retry)
+                log.warning("Transient HTTP error from Tesla API: %d (attempt %d/%d)",
+                           e.code, retry + 1, MAX_RETRIES)
+                if retry < MAX_RETRIES - 1:
+                    log.info("Retrying in %d seconds...", sleep_time)
+                    time.sleep(sleep_time)
+                    remove_lock()
+                else:
+                    log.error("Max retries reached for HTTP error %d", e.code)
+                    if not DEBUG_MODE:
+                        mail_exception(traceback.format_exc())
             else:
+                # Non-transient HTTP error - don't retry
+                log.error("Non-transient HTTP error: %d", e.code)
                 if DEBUG_MODE:
                     raise
                 else:
                     mail_exception(traceback.format_exc())
                 break
-        except:
-            if DEBUG_MODE:
-                raise
+        except Exception as e:
+            last_exception = e
+            # Check if this is a transient error
+            if is_transient_error(e):
+                sleep_time = RETRY_SLEEP_BASE * (2 ** retry)
+                log.warning("Transient error (attempt %d/%d): %s",
+                           retry + 1, MAX_RETRIES, str(e)[:200])
+                if retry < MAX_RETRIES - 1:
+                    log.info("Retrying in %d seconds...", sleep_time)
+                    time.sleep(sleep_time)
+                    remove_lock()
+                else:
+                    # Max retries reached for transient error
+                    log.error("Max retries reached for transient error: %s", str(e)[:200])
+                    if not DEBUG_MODE:
+                        mail_exception(str(e))
+                    remove_lock()
             else:
-                mail_exception(traceback.format_exc())
-            break
+                # Non-transient error - don't retry
+                log.error("Non-transient error: %s", str(e)[:200])
+                if DEBUG_MODE:
+                    raise
+                else:
+                    mail_exception(str(e))
+                remove_lock()
+                break
