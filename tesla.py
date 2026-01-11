@@ -149,7 +149,11 @@ def mail_exception(e):
     if DEBUG_MODE:
         raise Exception("email issues")
     else:
-        email(email=TESLA_EMAIL, message=message, subject="Tesla script error")
+        try:
+            email(email=TESLA_EMAIL, message=message, subject="Tesla script error")
+        except Exception as email_error:
+            # If we can't send email, log it but don't crash
+            log.error("Failed to send exception email: %s", str(email_error))
 
 
 def establish_connection(token=None):
@@ -517,10 +521,21 @@ def load_data():
 def save_data(data):
     log.debug("Save tesla database")
     if not DEBUG_MODE:
-        json.dump(data, open(DATA_FILE + ".tmp", "w"))
+        # Ensure directory exists
+        data_dir = os.path.dirname(os.path.abspath(DATA_FILE))
+        if data_dir and not os.path.exists(data_dir):
+            log.info("Creating directory: %s", data_dir)
+            os.makedirs(data_dir, exist_ok=True)
+
+        # Write to temp file first
+        temp_file = DATA_FILE + ".tmp"
+        with open(temp_file, "w") as f:
+            json.dump(data, f)
+
+        # Atomic rename
         if os.path.exists(DATA_FILE):
             os.remove(DATA_FILE)
-        os.rename(DATA_FILE + ".tmp", DATA_FILE)
+        os.rename(temp_file, DATA_FILE)
     else:
         log.debug("Skipped saving due to debug mode")
 
@@ -967,6 +982,7 @@ if __name__ == '__main__':
                     log.error("Max retries reached for HTTP error %d", e.code)
                     if not DEBUG_MODE:
                         mail_exception(traceback.format_exc())
+                    remove_lock()
             else:
                 # Non-transient HTTP error - don't retry
                 log.error("Non-transient HTTP error: %d", e.code)
@@ -974,6 +990,7 @@ if __name__ == '__main__':
                     raise
                 else:
                     mail_exception(traceback.format_exc())
+                remove_lock()
                 break
         except Exception as e:
             last_exception = e
